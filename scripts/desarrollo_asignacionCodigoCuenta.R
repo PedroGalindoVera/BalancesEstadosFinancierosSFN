@@ -54,5 +54,13 @@ catalogo <-
   summarise(CODIGO = list(unique(CODIGO)),
             NUM_CUENTAS = n())
 
-S <- SEPS[]
+SEPS_sampled <- SEPS %>% sample_n(1000000)
 
+catalogo <-
+  SEPS_sampled %>%
+  group_by(CODIGO) %>%
+  summarise(CUENTA = unique(CUENTA)) %>%
+  ungroup() %>%
+  group_by(CUENTA) %>%
+  summarise(CODIGO = list(unique(CODIGO)),
+            NUM_CUENTAS = n())
