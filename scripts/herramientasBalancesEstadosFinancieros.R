@@ -1775,7 +1775,7 @@ fusionarBalancesSBEstadosSEPSFinancieros <- function() {
   requerirPaquetes()
   
   SB <- crearBalancesFinancierosSB() # Verificado en prueba 2023/06/09
-  SEPS <- crearEstadosFinancierosSEPS() # Verificado en prueba 2023/06/09
+  SEPS <- crearEstadosFinancierosSEPS() # Verificado en prueba 2023/06/21
   BEF <- rbind(SEPS, SB)
   
   exportarEstadosFinancierosSEPSmensualSIEVA() # Verificado en prueba 2023/06/16
@@ -1784,11 +1784,13 @@ fusionarBalancesSBEstadosSEPSFinancieros <- function() {
   
   ruta_dir_compartida <- "\\\\192.168.10.244\\inteligencia"
   exportarResultadosCSV(BEF,"Balances Estados Financieros",ruta_dir_compartida)
+  
   cat("\n\n  \033[1;34mDuración total del proceso:",
       formatoTiempoHMS(difftime(Sys.time(), tic_general, units = "secs")), "\033[0m\n\n")
   
   options(max.print = num_max_impresiones_consola)
   mapply(Sys.setlocale, 
          categorias_de_configuracion, configuracion_local_proceso_R)
+  
   return(list(SB=SB,SEPS=SEPS,BEF=BEF))
 }
