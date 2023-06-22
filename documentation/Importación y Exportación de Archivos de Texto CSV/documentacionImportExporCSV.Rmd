@@ -1,0 +1,39 @@
+---
+title: "Importación y Exportación de Archivos de Texto `csv`"
+author: "Pedro Galindo Vera"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Importación de archivos `csv`
+
+| Característica                               | read.csv                                                                   | read_delim         | fread                                     | read_csv           | read.table                                                                 |
+|------------|------------|------------|------------|------------|------------|
+| Paquete                                      | base R                                                                     | readr              | data.table                                | readr              | base R                                                                     |
+| Velocidad                                    | Más lenta                                                                  | Más rápida (\~10x) | Más rápida (2-3x más rápida que read_csv) | Más rápida (\~10x) | Más lenta                                                                  |
+| Barra de progreso para trabajos largos       | No                                                                         | Sí                 | No                                        | Sí                 | No                                                                         |
+| Convierte vectores de caracteres en factores | Sí (hasta R 4.0.0)                                                         | No                 | No                                        | No                 | Sí (hasta R 4.0.0)                                                         |
+| Usa nombres de fila                          | Sí                                                                         | No                 | No                                        | No                 | Sí                                                                         |
+| Cambia los nombres de las columnas           | Sí                                                                         | No                 | No                                        | No                 | Sí                                                                         |
+| Reproducibilidad                             | Menor (hereda comportamiento del sistema operativo y variables de entorno) | Mayor              | Mayor                                     | Mayor              | Menor (hereda comportamiento del sistema operativo y variables de entorno) |
+
+# Exportación de archivos `csv`
+
+`write.table` es una función base de R que puede escribir dataframes en archivos delimitados. Esta función es muy flexible y puede escribir archivos con cualquier delimitador especificado a través del argumento `sep`. Sin embargo, esta función no está específicamente diseñada para escribir archivos CSV y su velocidad no es tan rápida como las otras opciones mencionadas anteriormente.
+
+Aquí está la tabla actualizada con una nueva columna para `write.table`:
+
+| Característica                         | write.csv                                                                  | write_csv         | fwrite                                   | write.csv2                                                                 | write.table                                                                |
+|------------|------------|------------|------------|------------|------------|
+| Paquete                                | base R                                                                     | readr             | data.table                               | base R                                                                     | base R                                                                     |
+| Velocidad                              | Más lenta                                                                  | Más rápida (\~2x) | Más rápida (2x más rápida que write_csv) | Más lenta                                                                  | Más lenta                                                                  |
+| Barra de progreso para trabajos largos | No                                                                         | No                | No                                       | No                                                                         | No                                                                         |
+| Escribe nombres de fila                | Sí (hasta R 4.0.0)                                                         | No                | No                                       | Sí (hasta R 4.0.0)                                                         | Sí (hasta R 4.0.0)                                                         |
+| Cambia los nombres de las columnas     | Sí                                                                         | No                | No                                       | Sí                                                                         | Sí                                                                         |
+| Reproducibilidad                       | Menor (hereda comportamiento del sistema operativo y variables de entorno) | Mayor             | Mayor                                    | Menor (hereda comportamiento del sistema operativo y variables de entorno) | Menor (hereda comportamiento del sistema operativo y variables de entorno) |

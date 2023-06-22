@@ -1,0 +1,39 @@
+---
+title: "Importación de datos"
+author: "Pedro Galindo Vera"
+date: "2023-03-29"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+#bibliography: documentacionIntroduccionScriptsExcel.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Función **`guess_encoding`** 
+
+La función **`guess_encoding`** devuelve un marco de datos que contiene dos columnas: **`encoding`** y **`confidence`**. La columna **`encoding`** muestra las codificaciones más probables para el archivo, mientras que la columna **`confidence`** muestra la probabilidad calculada de que el archivo esté codificado en cada una de estas codificaciones.
+
+```{r eval=FALSE}
+listaImportacionDatosFuente <- function() {
+  directorio_principal <- "data/Fuente"
+  
+  archivos <- list.files(path = directorio_principal, full.names = TRUE, recursive = TRUE)
+  
+  if (!require("readr")) { install.packages("readr") }
+  
+  library(readr)
+  
+  #lista_de_datos <- lapply(archivos, function (x) readr::read_delim(x, guess_max = 1000))
+  
+  lista_de_datos <- lapply(archivos, function (x) {
+    codificacion <- readr::guess_encoding(x, n_max = 1000)$encoding[1]
+    readr::read_delim( x, guess_max = 1000, locale = locale(encoding = codificacion) )
+  })
+  
+  return(lista_de_datos)
+}
+```

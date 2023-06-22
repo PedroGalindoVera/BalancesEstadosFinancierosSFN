@@ -1,0 +1,89 @@
+---
+title: "Tokenización"
+author: "Pedro Galindo Vera"
+date: "2023-04-11"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Tokenización
+
+Tokenizar un vector de texto puede ser una buena estrategia para buscar coincidencias con un vector de palabras admisibles y corregir errores. Al dividir el texto en tokens más pequeños, como palabras o n-gramas, puedes comparar cada token con tu vector de palabras admisibles y detectar y corregir errores más fácilmente.
+
+## División de fraces
+
+Una palabra es una unidad básica de lenguaje que tiene un significado y puede ser hablada o escrita. Por otro lado, un n-grama es una secuencia contigua de n elementos de un texto o discurso dado. En el contexto del procesamiento del lenguaje natural, estos elementos suelen ser palabras, pero también pueden ser caracteres o sílabas.
+
+Por ejemplo, si tomamos la frase "El perro corre en el parque" y la dividimos en n-gramas de 2 palabras (también conocidos como bigramas), obtendríamos las siguientes secuencias: "El perro", "perro corre", "corre en", "en el", "el parque".
+
+## Paquetes en R
+
+En R, puedes usar la función **`unnest_tokens`** del paquete **`tidytext`** para tokenizar texto de manera eficiente. Esta función te permite dividir una columna en tokens y aplanar la tabla en una fila por token. Además, admite evaluación no estándar a través del marco de tidyeval y ofrece varias opciones para la unidad de tokenización, como palabras, caracteres, n-gramas y más.
+
+También puedes usar otras funciones de tokenización disponibles en otros paquetes de R, como **`tokenize_words`**, **`tokenize_sentences`**, **`tokenize_ngrams`**, etc. del paquete **`tokenizers`**.
+
+## Diferencias
+
+**`unnest_tokens`** es una función del paquete **`tidytext`** que te permite dividir una columna en tokens y aplanar la tabla en una fila por token. Esta función admite evaluación no estándar a través del marco de tidyeval y ofrece varias opciones para la unidad de tokenización, como palabras, caracteres, n-gramas y más.
+
+Por otro lado, **`tokenize_words`** es una función del paquete **`tokenizers`** que te permite dividir un vector de texto en palabras. A diferencia de **`unnest_tokens`**, esta función no trabaja directamente con data frames y no aplanará la tabla en una fila por token.
+
+En cuanto a la función **`strsplit`** del paquete base de R, esta te permite dividir un vector de cadenas en subcadenas utilizando una expresión regular como separador. Aunque puedes usar esta función para tokenizar texto en palabras, no ofrece tantas opciones y flexibilidad como las funciones **`unnest_tokens`** y **`tokenize_words`**.
+
+# Ejemplo de tokenizacion indexada
+
+Aquí tienes un ejemplo de cómo usar la función unnest_tokens del paquete tidytext para dividir una columna de texto en palabras:
+
+```{r}
+# Cargamos los paquetes necesarios
+library(dplyr)
+library(tidytext)
+
+# Creamos un data frame de ejemplo
+data <- data.frame(text = c("El perro corre en el parque", "El gato duerme en el sofá"))
+
+# Agregamos una columna de índice
+data$index <- seq_along(data$text)
+
+# Dividimos la columna de texto en palabras
+data_words <- data %>%
+  unnest_tokens(word, text) %>%
+  select(index, word)
+
+# Mostramos el resultado
+data_words
+
+```
+
+Este código creará un data frame llamado **`data_words`** que contendrá una fila por cada palabra en la columna de texto original y una columna adicional llamada **`index`** que indicará el índice en el vector original de donde se obtuvo cada palabra.
+
+# Ejemplo de busqueda de una palabra en una frace
+
+Puedes usar la función **`stringdist`** del paquete **`stringdist`** en R para calcular la distancia entre dos cadenas de caracteres y encontrar palabras o frases similares en otro texto. Esta función te permite elegir entre varias métricas de distancia, como la distancia de Levenshtein, la distancia de Jaro-Winkler y más.
+
+Aquí tienes un ejemplo de cómo usar la función **`stringdist`** para encontrar una palabra similar en otro texto:
+
+```{r}
+# Cargamos el paquete necesario
+library(stringdist)
+
+# Definimos el texto y la palabra a buscar
+text <- "El perro corre en el parque"
+#word <- "parques"
+word <- "porque"
+
+# Dividimos el texto en palabras
+words <- unlist(strsplit(text, " "))
+
+# Calculamos la distancia entre cada palabra y la palabra a buscar
+distances <- stringdist(words, word)
+
+# Encontramos la palabra más similar
+similar_word <- words[which.min(distances)]
+
+# Mostramos el resultado
+similar_word
+```

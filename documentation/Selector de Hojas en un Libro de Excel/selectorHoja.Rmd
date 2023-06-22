@@ -1,0 +1,80 @@
+---
+title: "Documentación"
+author: "Pedro Galindo Vera"
+output:
+  html_document
+---
+
+## Objetivo
+
+Buscamos captar todas las tablas cuyo nombre contenga las palabras "*estado*" y "*financiero*".
+
+## Paquetes Empleados
+
+Para lograr lo que estás buscando, utilizaremos el paquete `readxl` para leer los nombres de todas las hojas de los libros de Excel, y luego utilizar el paquete `stringr` del paquete `tidyverse` para filtrar las hojas que contienen las palabras "*estado*" y "*financiero*".
+
+`Tidytext` es un paquete de R que se utiliza para el análisis de texto y el procesamiento de lenguaje natural. `Tidytext` proporciona una variedad de herramientas y funciones para trabajar con texto, incluyendo el tokenizado de palabras, la eliminación de palabras comunes, la agrupación de palabras por categorías gramaticales y la creación de gráficos para visualizar los resultados del análisis.
+
+```{r Paquetes}
+library(tidyverse)
+library(readxl)
+```
+
+Especificamos la ruta de la carpeta que contiene los archivos de Excel
+
+```{r Rutas}
+ruta_carpeta <- "Anos-anteriores-EEFF-MEN/2016"
+```
+
+Obtener la lista de archivos de Excel en la carpeta, especificando la extensión del archivo y que no sehan archivos ocultos en el preambulo
+
+```{r Nombre de Archivos}
+archivos_excel <- list.files(path = ruta_carpeta, pattern = "^[^~$].*\\.xlsx$", full.names = TRUE)
+```
+
+Se crea una vector de la lista de los nombres de las hojas de cada archivo de Excel, aplicando a la varible `archivos_excel` ,la función `excel_sheets`, lo que genera una lista que finalmente convertimos en vector con `unlist`. La función `excel_sheets` se emplea para seleccionar las hojas con nombres específicos.
+
+```{r Nombres de Hojas}
+lista_nombres_hojas <- unlist(lapply(archivos_excel, function(x) excel_sheets(x)))
+```
+
+En este código, primero leemos los nombres de todas las hojas del libro de Excel utilizando la función `excel_sheets()` del paquete `readxl`. Luego, utilizamos la función `str_detect()` del paquete `stringr` del paquete `tidyverse`. Para hacer la búsqueda de manera que no importe si las palabras "*estado*" o "*financiero*" están escritas en mayúsculas o minúsculas, puedes utilizar la función `regex()` del paquete `stringr` y pasar la opción `ignore_case = TRUE`. En esta expresión, utilizamos el operador `&` para unir dos condiciones. La primera condición busca las hojas que contienen la palabra "*estado*" utilizando la función `str_detect()`. La segunda condición busca las hojas que contienen la palabra "*financiero*" utilizando también la función `str_detect()`. Al unir estas dos condiciones con `&`, buscamos las hojas que contienen ambas palabras.
+
+```{r Nombres de Hojas Filtradas}
+hojas_filtradas <- 
+  lista_nombres_hojas[
+    str_detect(lista_nombres_hojas, regex("estado", ignore_case = TRUE)) & 
+      str_detect(lista_nombres_hojas, regex("financiero", ignore_case = TRUE))]
+hojas_filtradas <- unique(hojas_filtradas)
+```
+
+```{r Nombres de Hojas Filtradas (Alternativa) eval=FALSE, include=FALSE}
+# Alternativamente, buscamos semejanzas con la palabra "estado financiero"
+hojas_filtradas <- 
+  lista_nombres_hojas[
+    str_detect(
+      lista_nombres_hojas, 
+      regex("estado financiero", ignore_case = TRUE)
+    )
+  ]
+hojas_filtradas <- unique(hojas_filtradas)
+```
+
+## Verificación para todos los archivos de interes en el directorio
+
+```{r Lectura de Tablas Selecionadas}
+for ( archivo in archivos_excel ) {
+  # Seleccionamos las hojas que son de nuestro interes 
+  hojas_selecionadas <- which( excel_sheets(archivo) %in% hojas_filtradas )
+  #hojas_seleccionada <- excel_sheets(archivo)[which( excel_sheets(archivo) %in% hojas_filtradas )]
+  # Verificamos si uno de los nombres de hoja está en la lista de interes
+  if ( any(excel_sheets(archivo) %in% hojas_filtradas) ) {
+    print("SI")
+    datos <- read_excel(archivo, sheet = hojas_admisibles)
+    
+    which(colMeans(datos[[1]] == "13 DE ABRIL") > 0)
+    which(datos[[1]] == "13 DE ABRIL", arr.ind = TRUE)
+    datos <- lapply(hojas_selecionadas, function(x) read_excel(archivo, x))
+  }
+}
+```

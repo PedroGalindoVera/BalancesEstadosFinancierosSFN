@@ -1,0 +1,83 @@
+---
+title: "Pruebas de Rendimiento"
+author: "Pedro Galindo Vera"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Identificadores de fila con nombres de columnas para tablas en hojas de Excel
+
+```{r Funciones}
+identificarFechaCorteBoletinSB <- function(tabla) {
+  
+  # Esta función retorna la fecha de corte del Boletín Mensual SB.
+  
+  # NOTA: Requiere emplear la función indicePrimeraFilDecimalTabla()
+  
+  # Ejemplo de uso: tabla <- identificarFechaCorteBoletinSB(tabla)
+  
+  # Función para transformar a formato numérico de Excel una fecha date
+  formato_numerico_excel <- function(fecha) {
+    # Fecha base de Excel
+    fecha_base_excel <- as.Date("1899-12-30")
+    return(as.numeric(difftime(as.Date(fecha), as.Date("1899-12-30"))))
+  }
+  # Número correspondiente a fecha inicial para intervalo de búsqueda
+  num_fecha_inicio <- formato_numerico_excel("2000-01-01")
+  # Número correspondiente a fecha final para intervalo de búsqueda
+  num_fecha_fin <- formato_numerico_excel("2100-01-01")
+  # Empleamos la función indicePrimeraFilDecimalTabla()
+  indice_fila_nombres <- indicePrimeraFilDecimalTabla(tabla) - 1
+  # Subtabla
+  subtabla <- tabla[1:indice_fila_nombres-1,]
+  # Identificamos los indices de las celdas de la tabla que están en el rango numérico determinado antes de la fila con los nombres de columnas
+  celdas_coincidencias <- which( subtabla >= num_fecha_inicio & subtabla <= num_fecha_fin, arr.ind = TRUE)
+  
+  if ( length(celdas_coincidencias) > 0 ) {
+    # Determinamos el valor de la celda buscada con la fecha de corte
+    num_fecha_corte <- as.numeric(tabla[celdas_coincidencias[1,1], celdas_coincidencias[1,2]])
+    # Determinamos la fecha de corte
+    fecha_corte_date <- as.Date( num_fecha_corte, origin = "1899-12-30")
+  } else {
+    # Entradas de la subtabla
+    entradas <- as.character( unlist(subtabla[!is.na(subtabla)]) )
+    # Determinamos las fechas asociadas a las entradas
+    num_fechas <- lapply(entradas, analisisDifusoNLPFechaCorte)
+    # Tansformamos a date
+    fecha_corte_date <- num_fechas[!is.na(num_fechas)][[1]]
+  }
+  
+  return( fecha_corte_date[1] )
+}
+
+indicePrimeraFilDecimalTabla <- function(tabla) {
+  
+  frecuencia_ocurrencia_decimal_filas <-
+    sapply(
+      1:nrow(tabla),
+      function(fila) {
+        cadena_texto <- as.character(tabla[fila,])
+        frecuenciaEmpiricaRelativaOcurrenciaDecimalTexto(cadena_texto)
+      }
+    )
+  # diferencia_absoluta <- abs(diff(frecuencia_ocurrencia_decimal_filas))
+  # diferencia_maxima <- max(diferencia_absoluta)
+  # intersect(which(diferencia_absoluta == diferencia_maxima), which.min(frecuencia_ocurrencia_decimal_filas)) + 1
+  primera_fila_decimal <- which.min(frecuencia_ocurrencia_decimal_filas) + 1
+  
+  return(primera_fila_decimal)
+}
+
+tabla <- readxl::read_excel("files/FINANCIERO MENSUAL BANCA PRIVADA 2023_02.xlsx", sheet = "BALANCE")
+
+```
+
+```{r Pruebas}
+system.time(identificarIndiceFilaNombres(tabla))
+
+system.time(indicePrimeraFilDecimalTabla(tabla))
+```

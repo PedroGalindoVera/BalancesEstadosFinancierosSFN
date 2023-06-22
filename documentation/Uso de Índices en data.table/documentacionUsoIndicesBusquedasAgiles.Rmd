@@ -1,0 +1,81 @@
+---
+title: "Uso de Indices Para Busquedas Ágiles en data.tables"
+author: "Pedro Galindo Vera"
+date: "2023-03-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Índices
+
+Un índice es una estructura de datos que mejora la velocidad de las operaciones de búsqueda en una tabla de datos al proporcionar un acceso rápido a las filas de la tabla. Los índices se utilizan para acelerar las consultas en columnas específicas de una tabla al reducir el número de filas que deben ser examinadas.
+
+```{r}
+source("homogenizacionCombinacionTablasSEPS.R")
+mi_dt <- as.data.table(tabla_combinada)
+```
+
+## Creación de Indices en una columna
+
+En **`data.table`**, puedes crear índices en columnas específicas usando la función **`setindex()`**. Por ejemplo, si tienes un **`data.table`** llamado **`mi_dt`** y deseas crear un índice en la columna **`Razón Social`**, puedes usar el siguiente código:
+
+```{r}
+setindex(mi_dt, `Razón Social`)
+```
+
+## Consulta Luego de Crear Índices
+
+Una vez que hayas creado un índice en una columna, las consultas en esa columna deberían ser más rápidas. Por ejemplo, si realizas una consulta en la columna **`Razón Social`** después de crear un índice en esa columna:
+
+```{r}
+mi_dt[`Razón Social` == "COOPERATIVA DE AHORRO Y CREDITO JARDIN AZUAYO LIMITADA"]
+```
+
+La consulta debería ser más rápida que si no hubieras creado un índice en la columna **`Razón Social`**.
+
+Es importante tener en cuenta que los índices pueden acelerar las consultas en columnas específicas, pero también pueden ralentizar las operaciones de modificación de datos como agregar o eliminar filas. Por lo tanto, debes usar índices con cuidado y solo crearlos en columnas donde realizas consultas con frecuencia.
+
+## ¿Qué es un índice?
+
+Un índice es una estructura de datos que mejora la velocidad de las operaciones de búsqueda en una tabla de datos al proporcionar un acceso rápido a las filas de la tabla. Los índices se utilizan para acelerar las consultas en columnas específicas de una tabla al reducir el número de filas que deben ser examinadas. En `data.table`, puedes crear índices en columnas específicas usando la función `setindex()`. Por ejemplo, si tienes un `data.table` llamado `mi_dt` y deseas crear un índice en la columna `Razón Social`, puedes usar el siguiente código:
+
+```{r}
+setindex(mi_dt, `Razón Social`)
+```
+
+Una vez que hayas creado un índice en una columna, las consultas en esa columna deberían ser más rápidas. Por ejemplo, si realizas una consulta en la columna `Razón Social` después de crear un índice en esa columna:
+
+```{r}
+mi_dt[`Razón Social` == "COOPERATIVA DE AHORRO Y CREDITO JARDIN AZUAYO LIMITADA"]
+```
+
+La consulta debería ser más rápida que si no hubieras creado un índice en la columna `Razón Social`. Es importante tener en cuenta que los índices pueden acelerar las consultas en columnas específicas, pero también pueden ralentizar las operaciones de modificación de datos como agregar o eliminar filas. Por lo tanto, debes usar índices con cuidado y solo crearlos en columnas donde realizas consultas con frecuencia.
+
+## Eliminación de Índices
+
+Sí, puedes eliminar los índices en un **`data.table`** si ya no los necesitas. Para eliminar un índice en una columna específica de un **`data.table`**, puedes usar la función **`setindex()`** con **`NULL`** como segundo argumento. Por ejemplo, si tienes un **`data.table`** llamado **`mi_dt`** y deseas eliminar el índice en la columna **`Razón Social`**, puedes usar el siguiente código:
+
+```{r}
+setindex(mi_dt, `Razón Social`, NULL)
+```
+
+Esto eliminará el índice en la columna **`Razón Social`** del **`data.table`**. Después de eliminar el índice, las consultas en esa columna ya no se beneficiarán de la aceleración proporcionada por el índice.
+
+También puedes eliminar todos los índices en un **`data.table`** a la vez usando la función **`setindexv()`** con **`NULL`** como segundo argumento:
+
+```{r}
+setindexv(mi_dt, NULL)
+```
+
+Esto eliminará todos los índices en el **`data.table`**.
+
+## Índices en la memoria RAM
+
+Los índices en un **`data.table`** se almacenan en la memoria RAM de tu computadora. Cuando creas un índice en una columna de un **`data.table`** usando la función **`setindex()`**, el índice se crea y se almacena en la memoria RAM para un acceso rápido durante las consultas.
+
+Es importante tener en cuenta que los índices solo existen en la sesión actual de R. Si cierras R y vuelves a abrirlo más tarde, los índices que hayas creado en tus **`data.table`** ya no estarán disponibles y deberás volver a crearlos si deseas utilizarlos nuevamente.
+
+Si deseas guardar un **`data.table`** con sus índices para usarlo más tarde, puedes usar la función **`saveRDS()`** para guardar el **`data.table`** en un archivo RDS. Cuando cargues el **`data.table`** desde el archivo RDS más tarde usando la función **`readRDS()`**, los índices que hayas creado anteriormente estarán disponibles para su uso.

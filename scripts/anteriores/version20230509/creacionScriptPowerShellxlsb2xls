@@ -1,0 +1,36 @@
+ruta_libro <- "data/Fuente/SB/PUBLICA/2020/BOL_FIN_PUB_SEPT_20.xlsb"
+ruta_libro_norm <- normalizePath(ruta_libro)
+
+ruta_libro_mod <- "data/Fuente/SB/PUBLICA/2020/BOL_FIN_PUB_SEPT_20.xlsb"
+ruta_libro_mod_norm <- normalizePath(ruta_libro_mod)
+
+
+
+# Ruta del archivo xlsb
+$xlsbFile = "D:\INNOVACION\PASANTE\DESARROLLO\BalanceFinacieroSFN\data\Fuente\SB\PUBLICA\2020\BOL_FIN_PUB_SEPT_20.xlsb"
+
+# Ruta del archivo xlsx
+$xlsxFile = "D:\INNOVACION\PASANTE\DESARROLLO\BalanceFinacieroSFN\data\Fuente\SB\PUBLICA\2020\BOL_FIN_PUB_SEPT_20_MOD.xls"
+
+# Crear un objeto COM de Excel
+$excel = New-Object -ComObject Excel.Application
+
+# Deshabilitar las alertas
+$excel.DisplayAlerts = $false
+
+# Abrir el archivo xlsb
+$workbook = $excel.Workbooks.Open($xlsbFile)
+
+# Guardar como archivo xlsx, donde 1 corresponde al formato xls
+$workbook.SaveAs($xlsxFile, 1)
+
+# Cerrar el libro y salir de Excel
+$workbook.Close()
+$excel.Quit()
+
+
+
+
+
+
+$xlsbFile = "D:\INNOVACION\PASANTE\DESARROLLO\BalanceFinacieroSFN\data\Fuente\SB\PUBLICA\2020\BOL_FIN_PUB_SEPT_20.xlsb";$xlsxFile = "D:\INNOVACION\PASANTE\DESARROLLO\BalanceFinacieroSFN\data\Fuente\SB\PUBLICA\2020\BOL_FIN_PUB_SEPT_20_MOD.xls";$excel = New-Object -ComObject Excel.Application;$excel.DisplayAlerts = $false;$workbook = $excel.Workbooks.Open($xlsbFile);$workbook.SaveAs($xlsxFile, 1);$workbook.Close();$excel.Quit()

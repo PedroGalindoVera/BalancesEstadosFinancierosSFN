@@ -1,0 +1,150 @@
+---
+title: "Introducción a Macros de Excel y Scripts de Office"
+author: "Pedro Galindo Vera con asistencia de Microsoft Bing Search (Chat)"
+date: "2023-03-24"
+output:
+  pdf_document: default
+  word_document: default
+  html_document: default
+bibliography: documentacionIntroduccionScriptsExcel.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# TypeScript
+
+El lenguaje de programación utilizado para escribir scripts en **Excel** se llama TypeScript. TypeScript es un lenguaje de programación de código abierto desarrollado por **Microsoft** que se basa en JavaScript y agrega características adicionales como tipos estáticos y clases.
+
+Puedes usar TypeScript para crear scripts avanzados en Excel utilizando el ***Editor de Código***. También puedes grabar tus acciones con el Grabador de Acciones y luego editar el script resultante utilizando TypeScript.
+
+Para más información referirse a [@OfficeScripts]
+
+## Ejemplo 1. Nombres de las Tablas Dinámicas del Libro
+
+Ejemplo de script que puedes usar para mostrar en la consola los nombres de todas las tablas dinámicas junto con el nombre de su respectiva hoja en un libro de Excel:
+
+```{typescript}
+async function main(workbook: ExcelScript.Workbook) {
+  // Obtener la colección de hojas del libro
+  let sheets = workbook.getWorksheets();
+
+  // Recorrer todas las hojas
+  for (let sheet of sheets) {
+    // Obtener el nombre de la hoja
+    let sheetName = sheet.getName();
+
+    // Obtener la colección de tablas dinámicas en la hoja
+    let pivotTables = sheet.getPivotTables();
+
+    // Recorrer todas las tablas dinámicas en la hoja
+    for (let pivotTable of pivotTables) {
+      // Obtener el nombre de la tabla dinámica
+      let pivotTableName = pivotTable.getName();
+
+      // Mostrar el nombre de la tabla dinámica y el nombre de su hoja en la consola
+      console.log(`Hoja: ${sheetName} - Tabla Dinámica: ${pivotTableName}`);
+    }
+  }
+}
+```
+
+Este script obtiene la colección de hojas del libro y recorre cada una para obtener su nombre y su colección de tablas dinámicas. Luego recorre cada tabla dinámica para obtener su nombre y muestra en la consola el nombre de cada tabla junto con el nombre de su respectiva hoja.
+
+# Observación
+
+No se puede integrar directamente código VBA en Scripts de Office. VBA (Visual Basic for Applications) y Scripts de Office son dos tecnologías diferentes para automatizar tareas en Excel. Los Scripts de Office utilizan JavaScript como lenguaje de programación y se ejecutan en el Editor de código dentro de Excel en la Web [@MicrosoftOfficeScripts] [@MicrosoftVBA].
+
+# Visual Basic for Applications (VBA)
+
+El lenguaje de programación utilizado en las **macros** de Excel se llama VBA (Visual Basic for Applications). VBA es un lenguaje de programación basado en eventos que se utiliza para automatizar tareas en aplicaciones de Microsoft Office.
+
+## Ejemplo 1. Desactivación de todos los filtros en la tabla dinámica activa
+
+Este es un script de VBA (Visual Basic for Applications) que desactiva todos los filtros en una tabla dinámica específica en la hoja activa de Excel. El script define una macro llamada **`DesacFiltros`** que cuando se ejecuta, llama al método **`ClearAllFilters`** en un objeto **`PivotTable`** con el nombre "Tabla dinámica2". Esto elimina todos los filtros aplicados actualmente a la tabla dinámica especificada. Para ejecutar un macro seguir [@ExcelMacros].
+
+```{vba}
+Sub DesacFiltros()
+'
+' Desacativa los filtros en la hoja activa Macro
+'
+
+'
+    ActiveSheet.PivotTables("Tabla dinámica2").ClearAllFilters
+End Sub
+```
+
+## Ejemplo 2. Desactivación de todos los filtros en cada tabla dinámica del libro activo
+
+```{vba}
+Sub DesacFiltrosTodasHojas()
+    Dim ws As Worksheet
+    Dim pt As PivotTable
+    For Each ws In ActiveWorkbook.Worksheets
+        For Each pt In ws.PivotTables
+            pt.ClearAllFilters
+        Next pt
+    Next ws
+End Sub
+```
+
+Este script recorre todas las hojas del libro activo y desactiva los filtros en todas las tablas dinámicas de cada hoja
+
+## Ejemplo 3. Repetición de la etiqueta fecha en la hoja activa
+
+```{vba}
+Sub ReptEtiqFechas()
+'
+' ReptEtiqFechas Macro
+' Repite las etiquetas de la fecha de corte del boletin
+'
+
+'
+    ActiveSheet.PivotTables("Tabla dinámica2").RepeatAllLabels xlRepeatLabels
+End Sub
+```
+
+## Ejemplo 4. Repetición de la etiqueta fecha en cada tabla dinámica del libro activo
+
+Se puede modificar el código de la macro en el ejercicio anterior para que se aplique a todas las tablas dinámicas en el libro. Una forma de hacerlo es reemplazando la línea **`ActiveSheet.PivotTables("Tabla dinámica2").RepeatAllLabels xlRepeatLabels`** con un bucle que recorra todas las hojas del libro y todas las tablas dinámicas en cada hoja. Aquí tienes un ejemplo de cómo podría verse el código modificado:
+
+```{vba}
+Sub ReptEtiqFechas()
+    ' Repite las etiquetas de la fecha de corte del boletin
+    Dim ws As Worksheet
+    Dim pt As PivotTable
+    For Each ws In ThisWorkbook.Worksheets
+        For Each pt In ws.PivotTables
+            pt.RepeatAllLabels xlRepeatLabels
+        Next pt
+    Next ws
+End Sub
+```
+
+Este código recorre todas las hojas del libro y aplica la función **`RepeatAllLabels`** a todas las tablas dinámicas en cada hoja.
+
+## Desbloqueo de Macros
+
+Excel tiene una función de seguridad que puede bloquear la ejecución de macros para proteger tu sistema contra código malicioso. Si confías en la fuente de la macro y deseas permitir su ejecución, puedes cambiar la configuración de seguridad de las macros en Excel. Aquí tienes los pasos para hacerlo:
+
+1.  Haz clic en Archivo \> Opciones \> Centro de confianza \> Configuración del Centro de confianza.
+
+2.  En el panel izquierdo, haz clic en Configuración de macros.
+
+3.  Selecciona la opción que desees para habilitar las macros:
+
+    -   Deshabilitar todas las macros sin notificación: Esta opción bloquea todas las macros y no te notifica cuando una macro está bloqueada.
+
+    -   Deshabilitar todas las macros con notificación: Esta opción bloquea todas las macros pero te muestra una barra de mensajes cuando una macro está bloqueada para que puedas habilitarla si lo deseas.
+
+    -   Deshabilitar todas las macros excepto las firmadas digitalmente: Esta opción solo permite ejecutar macros que hayan sido firmadas digitalmente por un editor de confianza.
+
+    -   Habilitar todas las macros: Esta opción permite ejecutar todas las macros sin restricciones.
+
+Ten en cuenta que habilitar todas las macros puede aumentar el riesgo de seguridad ya que permite la ejecución de cualquier macro sin restricciones. Por lo tanto, es importante asegurarse de que solo se ejecuten macros provenientes de fuentes confiables.
+
+Una vez que hayas cambiado la configuración, haz clic en Aceptar para guardar los cambios y cerrar el cuadro de diálogo Opciones. Ahora deberías poder ejecutar tus macros sin problemas.
+
+
+# Referencias

@@ -1,0 +1,131 @@
+---
+title: "Distancia entre palabras"
+author: "Pedro Galindo Vera"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Libros de Excel
+
+## Lectura de los nombres de la Hoja de Libros de Excel
+
+En el directorio `Fuente` almacenamos los Boletines Mensuales de la Superintendencia de Bancos. Con el siguiente código podemos leer y almacenar en una lista los nombres de cada una de las Hojas de cada uno de los libros de Excel almacenados.
+
+```{r eval = FALSE}
+# Instalamos y cargamos el paquete para lectura de archivos excel
+# install.packages("readxl")
+library(readxl)
+
+# Definimos el directorio
+folder_path <- "data/Fuente/SB"
+# Listamos todos lo archivos en el directorio
+files <- list.files(folder_path, recursive = TRUE)
+
+# Creamos una lista para almacenar la información
+data <- list()
+
+for (file in files) {
+  # Juntamos el nombre de cada archivo con su directorio
+  file_path <- file.path(folder_path, file)
+  # Listamos todas las hojas de cada libro
+  sheet_names <- excel_sheets(file_path)
+  # ALmacenamos la información en la lista
+  data[[file]] <- sheet_names
+}
+```
+
+## Matríz de nombres de Hojas por Libro de Excel
+
+A partir de la lista anterior, damos formato a una matriz con que permite presentar la totalidad de los nombres de las hojas de la colecciòn total de libros de excel, mediante el siguiente código.
+
+```{r eval = FALSE}
+# Determinamos el número máximo de hojas de entre todos los libros listados
+max_length <- max(sapply(data, length))
+# Agregamos NA para completar la información de todas las columnas
+data_padded <- lapply(data, function(x) {c(x, rep(NA, max_length - length(x)))})
+# Creamos un data frame con la información recabada
+df <- as.data.frame(data_padded, stringsAsFactors = FALSE)
+# Transponemos la matriz
+df <- as.data.frame(t(df))
+# Agregamos nombres identificadores
+colnames(df) <- paste("Hoja",seq(1,max_length))
+# Presentamos resultados
+View(df)
+```
+
+## Identifiación de nombres de las Hojas
+
+```{r eval = FALSE}
+# Obtener valores únicos de las celdas
+unique_values <- unique(as.vector(as.matrix(df)))
+# Ordenamos alfabéticamente
+sorted_values <- sort(unique_values)
+```
+
+# Paquete `stringdist`
+
+El paquete `stringdist` en R proporciona funciones para calcular la distancia entre cadenas de texto y realizar búsquedas de texto difusas utilizando diferentes métricas de distancia^[1](https://www.rdocumentation.org/packages/stringdist/versions/0.9.10)^. Todas las operaciones de distancia y coincidencia son independientes del sistema y la codificación y están diseñadas para ser rápidas utilizando `openMP` para el cálculo en paralelo^[2](https://github.com/markvanderloo/stringdist)^. Algunas de las funciones principales que ofrece el paquete son `stringdist()` para calcular distancias por pares entre dos vectores de caracteres, `stringdistmatrix()` para calcular la matriz de distancia para uno o dos vectores y `stringsim()` para calcular una similitud de cadena entre 0 y 1 basada en `stringdist`^[1](https://www.rdocumentation.org/packages/stringdist/versions/0.9.10)^.
+
+```{r eval = FALSE}
+#install.packages("stringdist")
+library(stringdist)
+```
+
+## Función `stringdistmatrix`
+
+La función **`stringdistmatrix`** en R calcula la matriz de distancia de cadenas con filas según **`a`** y columnas según **`b`**. Los posibles argumentos para el parámetro **`method`** son **`"osa"`**, **`"lv"`**, **`"dl"`**, **`"hamming"`**, **`"lcs"`**, **`"qgram"`**, **`"cosine"`**, **`"jaccard"`**, **`"jw"`** y **`"soundex"`**. Estos métodos representan diferentes algoritmos para calcular las distancias de cadenas. Por ejemplo, **`"osa"`** significa distancia de alineación de cadenas óptima, que es como la distancia de Levenshtein pero también permite la transposición de caracteres adyacentes.
+
+Breve descripción de cada método:
+
+-   **`"osa"`**: Distancia de alineación de cadenas óptima (restringida Damerau-Levenshtein). Permite la transposición de caracteres adyacentes.
+
+-   **`"lv"`**: Distancia de Levenshtein. Cuenta el número de eliminaciones, inserciones y sustituciones necesarias para convertir **`b`** en **`a`**.
+
+-   **`"dl"`**: Distancia completa de Damerau-Levenshtein.
+
+-   **`"hamming"`**: Distancia de Hamming. Cuenta el número de sustituciones de caracteres que convierten **`b`** en **`a`**. Si **`a`** y **`b`** tienen un número diferente de caracteres, la distancia es Infinito.
+
+-   **`"lcs"`**: Distancia de subcadena común más larga.
+
+-   **`"qgram"`**: Distancia q-gram.
+
+-   **`"cosine"`**: Distancia coseno entre perfiles q-gram.
+
+-   **`"jaccard"`**: Distancia Jaccard entre perfiles q-gram.
+
+-   **`"jw"`**: Distancia Jaro o Jaro-Winkler.
+
+-   **`"soundex"`**: Distancia basada en la codificación soundex.
+
+## Ejemplo. Distancia de Levenshtein
+
+```{r eval = FALSE}
+matriz_distancia <- adist(sorted_values)
+colnames(matriz_distancia) <- sorted_values
+rownames(matriz_distancia) <- sorted_values
+View(matriz_distancia)
+```
+
+## Empleos de las diferentes métricas
+
+Cada método de distancia de cadena se puede utilizar en diferentes situaciones y para diferentes propósitos. Por ejemplo:
+
+-   **`"osa"`** y **`"lv"`**: Son útiles para comparar cadenas que pueden contener errores tipográficos o errores de ortografía.
+
+-   **`"dl"`**: Es similar a **`"osa"`** y **`"lv"`**, pero permite múltiples ediciones de subcadenas.
+
+-   **`"hamming"`**: Se utiliza para comparar cadenas de igual longitud y contar el número de caracteres diferentes.
+
+-   **`"lcs"`**: Se utiliza para encontrar la subcadena común más larga entre dos cadenas.
+
+-   **`"qgram"`**, **`"cosine"`** y **`"jaccard"`**: Son útiles para comparar la similitud entre dos cadenas basándose en sus perfiles q-gram.
+
+-   **`"jw"`**: Es útil para comparar nombres escritos por humanos que pueden contener errores tipográficos.
+
+-   **`"soundex"`**: Se utiliza para comparar la similitud fonética entre dos cadenas.
+
+La elección del método depende de la naturaleza de las cadenas que se están comparando y del tipo de disimilitud que se está midiendo. Por ejemplo, si está comparando nombres escritos por humanos que pueden contener errores tipográficos, la distancia Jaro-Winkler (**`"jw"`**) puede ser útil. Si está comparando nombres que se escribieron después de escucharlos, una distancia fonética como soundex (**`"soundex"`**) puede ser una mejor opción.

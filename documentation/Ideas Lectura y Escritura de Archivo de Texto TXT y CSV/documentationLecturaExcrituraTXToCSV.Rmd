@@ -1,0 +1,114 @@
+---
+title: "Ideas Lectura y Escritura de Archivo de Texto TXT y CSV"
+author: "Pedro Galindo Vera"
+date: "2023-05-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Lectura por Lineas
+
+La función `readLines()` en R permite leer líneas de texto de un archivo o conexión. Aquí tienes un ejemplo de cómo usar esta función para leer las primeras 5 líneas de un archivo de texto:
+
+```{r}
+# Leer las primeras 5 líneas de un archivo de texto
+lineas <- readLines("mi_archivo.txt", n = 5)
+
+# Mostrar las líneas leídas
+lineas
+```
+
+En este ejemplo, se usa la función `readLines()` para leer las primeras 5 líneas del archivo `mi_archivo.txt`. El argumento `n = 5` indica que se deben leer solo las primeras 5 líneas del archivo. Las líneas leídas se almacenan en el vector `lineas` y se muestran en la consola.
+
+Si el archivo está codificado en una codificación diferente a la codificación predeterminada del sistema, puedes especificar la codificación correcta usando el argumento `encoding`. Por ejemplo, si el archivo está codificado en ISO-8859-1, puedes usar el siguiente código para leerlo correctamente:
+
+```{r}
+# Leer las primeras 5 líneas de un archivo de texto codificado en ISO-8859-1
+lineas <- readLines("mi_archivo.txt", n = 5, encoding = "ISO-8859-1")
+
+# Mostrar las líneas leídas
+lineas
+```
+
+En este caso, se especifica que el archivo está codificado en ISO-8859-1 usando el argumento `encoding = "ISO-8859-1"`.
+
+## ¿Puedo modificar un csv sin inportarlo por ejemplo usando algo parecido a `readLines`?
+
+No es posible modificar directamente un archivo CSV sin importarlo a R. Sin embargo, puedes leer el contenido del archivo CSV como texto usando la función `readLines()`, modificar el texto en R y luego escribir el texto modificado en el archivo CSV usando la función `writeLines()`.
+
+Aquí tienes un ejemplo de cómo hacerlo:
+
+```r
+# Leer el contenido del archivo CSV como texto
+texto <- readLines("mi_archivo.csv")
+
+# Modificar el texto en R
+texto_modificado <- ... # Realiza las modificaciones necesarias
+
+# Escribir el texto modificado en el archivo CSV
+writeLines(texto_modificado, "mi_archivo.csv")
+```
+
+En este ejemplo, se lee el contenido del archivo CSV como texto usando la función `readLines()` y se almacena en la variable `texto`. Luego se modifica el texto en R y se almacena en la variable `texto_modificado`. Finalmente, se escribe el texto modificado en el archivo CSV usando la función `writeLines()`.
+
+Ten en cuenta que este método puede ser más complicado que simplemente importar el archivo CSV a R, modificar los datos y luego exportarlos de nuevo al archivo CSV. Además, debes tener cuidado al modificar el texto del archivo CSV para no alterar su formato y estructura.
+
+# Escritura de Lineas
+
+Sí, puedes usar la función `writeLines()` en R para agregar nuevas líneas a un archivo de texto de manera rápida y sencilla. Para hacerlo, debes abrir una conexión al archivo en modo de agregar (`"a"`) y luego usar la función `writeLines()` para escribir las nuevas líneas en el archivo a través de la conexión. Aquí tienes un ejemplo:
+
+```{r}
+# Abrir una conexión al archivo en modo de agregar
+con <- file("mi_archivo.txt", "a")
+
+# Escribir nuevas líneas en el archivo a través de la conexión
+writeLines(c("Nueva línea 1", "Nueva línea 2"), con)
+
+# Cerrar la conexión al archivo
+close(con)
+```
+
+En este ejemplo, se abre una conexión al archivo `mi_archivo.txt` en modo de agregar usando la función `file()` con el argumento `"a"`. Luego se usan la función `writeLines()` para escribir dos nuevas líneas en el archivo a través de la conexión. Finalmente, se cierra la conexión al archivo usando la función `close()`.
+
+Después de ejecutar este código, el archivo `mi_archivo.txt` contendrá dos nuevas líneas al final.
+
+## Desempeño
+
+Si solo necesitas agregar nuevas líneas al final de un archivo de texto, usar la función `writeLines()` en R para escribir directamente en el archivo puede ser más rápido que importar todo el contenido del archivo a R, agregar las nuevas líneas y luego exportar todo el contenido de nuevo al archivo.
+
+Sin embargo, si necesitas realizar operaciones más complejas con los datos, como filtrar, ordenar o modificar valores existentes, puede ser más fácil y conveniente importar los datos a R, realizar las operaciones necesarias y luego exportar los datos de nuevo al archivo.
+
+En resumen, el método más rápido y conveniente depende de la tarea específica que necesites realizar. Si solo necesitas agregar nuevas líneas al final de un archivo de texto, usar `writeLines()` puede ser una buena opción. Si necesitas realizar operaciones más complejas con los datos, puede ser más fácil y conveniente importar los datos a R.
+
+Sí, cuando usas la función `writeLines()` en R para agregar nuevas líneas a un archivo de texto en modo de agregar (`"a"`), las nuevas líneas se escriben al final del archivo.
+
+Aquí tienes un ejemplo:
+
+```{r}
+# Abrir una conexión al archivo en modo de agregar
+con <- file("mi_archivo.txt", "a")
+
+# Escribir nuevas líneas en el archivo a través de la conexión
+writeLines(c("Nueva línea 1", "Nueva línea 2"), con)
+
+# Cerrar la conexión al archivo
+close(con)
+```
+
+En este ejemplo, se abre una conexión al archivo `mi_archivo.txt` en modo de agregar usando la función `file()` con el argumento `"a"`. Luego se usan la función `writeLines()` para escribir dos nuevas líneas en el archivo a través de la conexión. Finalmente, se cierra la conexión al archivo usando la función `close()`.
+
+Después de ejecutar este código, el archivo `mi_archivo.txt` contendrá dos nuevas líneas al final.
+
+# Ejemplo de uso
+
+```{r}
+ruta <- "data/Fuente/SEPS/Bases de Datos/Estados Financieros/2015 EEFF MEN/2015.csv"
+lineas <- readLines(ruta, n = 1000000, encoding = "ISO-8859-1")
+lineas[grepl("Ã‘", lineas)]
+
+lineas_mod <- gsub("Ã‘", "Ñ", lineas)
+lineas_mod[grepl("Ã‘", lineas_mod)]
+```

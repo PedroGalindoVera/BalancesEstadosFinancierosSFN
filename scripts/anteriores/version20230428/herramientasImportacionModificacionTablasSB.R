@@ -1,0 +1,1673 @@
+# Herramientas en desuso ####
+
+eliminarColumnasNumeracion <- function(tabla) {
+  
+  # Esta función permite identificar y eliminar columna con numeración de filas en una tabla.
+  
+  # Ejemplo de uso: tabla <- eliminarColumnasNumeracion(tabla)
+  
+  # Especificamos la tolerancia de encontrar un conjunto inductor
+  probabilidad <- 0.75
+  
+  # Determinamos si una columna contiene datos numéricos secuenciales dada la tolerancia
+  columnas_inductoras <- sapply(tabla, function(x) is.numeric(na.omit(x)) && mean(diff(na.omit(x)) == 1) > probabilidad )
+  # Identificamos el indice de las columnas buscadas
+  indices_columnas_inductoras  <- as.numeric(which(columnas_inductoras))
+  # Ver datos a eliminar
+  # View(mi_df[,indice_columnas_inductoras])
+  # Eliminamos las columnas inductoras
+  if ( length(indices_columnas_inductoras) > 0 ) {
+    cat("Se ha(n) eliminado", length(indices_columnas_inductoras), "columna(s) de numeración de filas.\n")
+    return( tabla[, -indices_columnas_inductoras] )
+  } else {
+    cat("No se han encontrado columnas de numeración de filas.\n")
+    return( tabla )
+  }
+}
+
+eliminarColumnasInsignificantes <- function(tabla) {
+  
+  # Esta función permite identificar y eliminar columnas que contienen únicamente valores NA o sin significancia.
+  
+  # NOTA: Se recomienda emplear esta función luego de emplear eliminarColumnasNumeracion()
+  
+  # Ejemplo de uso: tabla <- eliminarColumnasInsignificantes(tabla)
+  
+  # Identificamos lógicamente las columnas que contienen únicamente NA o  son mayores 0 y menores a 10
+  conlumnas_insignificantes <- apply(tabla, 2, function(x) all(is.na(x) | between(as.numeric(x),1,10) ) )
+  # Obtenemos los indices de las filas identificadas
+  indices_conlumnas_insignificantes <- as.numeric(which(conlumnas_insignificantes))
+  # Ver datos a eliminar
+  # View(tabla[indices_conlumnas_insignificantes,])
+  # Excluimos las filas identificadas
+  if ( length(indices_conlumnas_insignificantes) > 0 ) {
+    cat("Se ha(n) eliminado", length(indices_conlumnas_insignificantes), "columna(s) insignificante(s).\n")
+    return( tabla[,-indices_conlumnas_insignificantes] )
+  } else {
+    cat("No se han encontrado columnas insignificantes.\n")
+    return( tabla )
+  }
+}
+
+eliminarFilasSinValores <- function(tabla) {
+  
+  # Esta función permite identificar y eliminar filas que contienen únicamente valores NA o 0 en una tabla.
+  
+  # NOTA: Se recomienda emplear esta función luego de emplear eliminarColumnasNumeracion()
+  
+  # Ejemplo de uso: tabla <- eliminarFilasSinValores(tabla)
+  
+  # Identificamos las filas que contienen únicamente NA o 0
+  filas_sin_valores <- apply(tabla, 1, function(x) all(is.na(x) | x == 0))
+  # Obtenemos los indices de las filas identificadas
+  indices_filas_sin_valores <- which(filas_sin_valores)
+  # Ver datos a eliminar
+  # View(tabla[indices_filas_sin_valores,])
+  # Excluimos las filas identificadas
+  if ( length(indices_filas_sin_valores) > 0 ) {
+    cat("Se ha(n) eliminado", length(indices_filas_sin_valores), "fila(s) sin valores.\n")
+    return( tabla[-indices_filas_sin_valores,] )
+  } else {
+    cat("No se han encontrado filas sin valores.\n")
+    return( tabla )
+  }
+}
+
+eliminarColumnasNA <- function(tabla) {
+  
+  # Esta función permite identificar y eliminar columnas que contienen únicamente valores NA o 0 en una tabla.
+  
+  # NOTA: Se recomienda emplear esta función luego de emplear eliminarColumnasNumeracion()
+  
+  # Ejemplo de uso: tabla <- eliminarcolumnasSinValores(tabla)
+  
+  # Identificamos las columnas que contienen únicamente NA o 0
+  columnas_sin_valores <- apply(tabla, 1, function(x) all(is.na(x)))
+  # Obtenemos los indices de las columnas identificadas
+  indices_columnas_sin_valores <- which(columnas_sin_valores)
+  # Ver datos a eliminar
+  # View(tabla[indices_columnas_sin_valores,])
+  # Excluimos las columnas identificadas
+  if ( length(indices_columnas_sin_valores) > 0 ) {
+    cat("Se ha(n) eliminado", length(indices_columnas_sin_valores), "columna(s) sin valores.\n")
+    return( tabla[-indices_columnas_sin_valores,] )
+  } else {
+    cat("No se han encontrado columnas NA.\n")
+    return( tabla )
+  }
+}
+
+eliminarInformacionFinTabla <- function(tabla) {
+  
+  # Esta función permite identificar y eliminar las filas con información ajena a los datos y presente en la parte inferior de la tabla.
+  
+  # Ejemplo de uso: tabla <- eliminarInformacionFinTabla(tabla)
+  
+  # Lista de palabras a buscar
+  lista_palabras <- c("prueba de cuadre", "fuente", "elaboración", "nota", "grandes", "medianas", "pequeñas")
+  
+  # Identificamos lógicamente las columnas con coincidencias
+  numero_coincidencia_columna <- apply(tabla, 2, function(x) sum(grepl(paste(lista_palabras, collapse = "|"), x, ignore.case = TRUE)) )
+  # Determinamos la primera columna con mayores coincidencias
+  indice_columna_mayores_coincidencias <- which.max(numero_coincidencia_columna)[1]
+  # Identificamos lógicamente las filas con coincidencias en la columna antes identificada
+  coincidencias_filas <- grepl(paste(lista_palabras, collapse = "|"), tabla[[indice_columna_mayores_coincidencias]], ignore.case = TRUE)
+  # Obtenemos los indices de las filas identificadas
+  indices_filas_coincidencias <- which(coincidencias_filas)
+  # Especificamos el índice de la fila referencial para eliminar la información
+  indice_fila_referencial <- min(indices_filas_coincidencias) - 1
+  # Ver datos a eliminar
+  # View(tabla[(indice_fila_referencial+1):nrow(tabla),])
+  # Verificamos que se trata de las últimas filas antes de eliminarlas
+  if ( indice_fila_referencial > nrow(tabla) - 20 ) {
+    indice_fila_referencial <- min(indice_fila_referencial - 1, nrow(tabla))
+    cat("Se ha(n) eliminado", nrow(tabla) - indice_fila_referencial, "fila(s) con meta data al final de la tabla.\n")
+    return( tabla[1:indice_fila_referencial, ] )
+  } else {
+    cat("No se han encontrado filas por eliminar al final de la tabla.\n")
+    return( tabla )
+  }
+}
+
+identificarIndiceFilaNombres <- function(tabla) {
+  
+  # Esta función retorna el índice de la columna de nombres de una tabla, asociada a una lista de nombres a buscar.
+  
+  # Ejemplo de uso: tabla <- identificarIndiceFilaNombres(tabla)
+  
+  # Lista de nombres a buscar
+  lista_nombres_bancos <- c("cuenta", "codigo", "pichincha", "guayaquil", "produbanco", "internacional", "loja", "austro", "machala", "pacifico")
+  # Especificamos el número mínimo de coincidencias a buscar
+  numero_minimo_coincidencias <- 1
+  
+  # Determinamos el número de coincidencias por cada fila
+  numero_coincidencias_fila <- apply(tabla, 1, function(x) sum(grepl(paste(lista_nombres_bancos, collapse = "|"), x, ignore.case = TRUE)) )
+  # Identificamos el índice de las filas que cumplen el mínimo de coincidencias
+  indices_filas_minimas_coincidencias <- which(numero_coincidencias_fila >= numero_minimo_coincidencias)
+  # Identificamos el índice de las filas que tienen mayores coincidencias
+  indices_fila_mayores_coincidencias <- which.max(numero_coincidencias_fila)
+  # Determinamos la primera fila que cumple ambas condiciones
+  indice_fila_referencial <- intersect(indices_filas_minimas_coincidencias, indices_fila_mayores_coincidencias)[1]
+  
+  return( indice_fila_referencial )
+}
+
+impresionProgreso <- function(conjunto) {
+  contador_progreso <<- if ( exists("contador_progreso") ) contador_progreso + 1 else 1
+  porcentaje_progreso <- round(contador_progreso / length(conjunto) * 100, 1)
+  cat(paste0("\n[",contador_progreso,"]"), porcentaje_progreso, "% completado\n")
+  if ( contador_progreso == length(conjunto) ) rm(contador_progreso, envir = .GlobalEnv)
+}
+
+identificarFechaCorteBoletinSB <- function(tabla) {
+  
+  # Esta función retorna la fecha de corte del Boletín Mensual SB.
+  
+  # NOTA: Requiere emplear la función indicePrimeraFilDecimalTabla()
+  
+  # Ejemplo de uso: tabla <- identificarFechaCorteBoletinSB(tabla)
+  
+  # Función para transformar a formato numérico de Excel una fecha date
+  formato_numerico_excel <- function(fecha) {
+    # Fecha base de Excel
+    fecha_base_excel <- as.Date("1899-12-30")
+    return(as.numeric(difftime(as.Date(fecha), as.Date("1899-12-30"))))
+  }
+  # Número correspondiente a fecha inicial para intervalo de búsqueda
+  num_fecha_inicio <- formato_numerico_excel("2000-01-01")
+  # Número correspondiente a fecha final para intervalo de búsqueda
+  num_fecha_fin <- formato_numerico_excel("2100-01-01")
+  # Empleamos la función indicePrimeraFilDecimalTabla()
+  indice_fila_nombres <- indicePrimeraFilDecimalTabla(tabla) - 1
+  # Subtabla
+  subtabla <- tabla[1:indice_fila_nombres-1,]
+  # Identificamos los indices de las celdas de la tabla que están en el rango numérico determinado antes de la fila con los nombres de columnas
+  celdas_coincidencias <- which( subtabla >= num_fecha_inicio & subtabla <= num_fecha_fin, arr.ind = TRUE)
+  
+  if ( length(celdas_coincidencias) > 0 ) {
+    # Determinamos el valor de la celda buscada con la fecha de corte
+    num_fecha_corte <- as.numeric(tabla[celdas_coincidencias[1,1], celdas_coincidencias[1,2]])
+    # Determinamos la fecha de corte
+    fecha_corte_date <- as.Date( num_fecha_corte, origin = "1899-12-30")
+  } else {
+    # Entradas de la subtabla
+    entradas <- as.character( unlist(subtabla[!is.na(subtabla)]) )
+    # Determinamos las fechas asociadas a las entradas
+    num_fechas <- lapply(entradas, analisisDifusoNLPFechaCorte)
+    # Tansformamos a date
+    fecha_corte_date <- num_fechas[!is.na(num_fechas)][[1]]
+  }
+  
+  return( fecha_corte_date[1] )
+}
+
+# Herramientas en uso ####
+
+hojasLibrosExcelDirectorio <- function(ruta_directorio) {
+  
+  # Esta función permite obtener los nombres de todas las hojas de todos los libros de excel en un directorio.
+  
+  # Ejemplo de uso: hojasLibrosExcelDirectorio(ruta_directorio = "data/Fuente/SB/PRIVADA")
+  
+  # Requerimiento de paquetes
+  if (!require("readxl")) { 
+    install.packages("readxl")
+    library(readxl)
+  }
+  
+  # Listamos todos los archivos del directorio especificado
+  archivos <- list.files(ruta_directorio, recursive = TRUE)
+  
+  #cat("Analisando las hojas de cálculo en los libros de excel del directorio [", ruta_directorio, "]:\n")
+  
+  # Inicializamos una lista para almacenar los nombres de las hojas de cálculo
+  lista_nombres_hojas <- list()
+  
+  for (archivo in archivos) {
+    contador <- if ( archivo == archivos[[1]] ) 1 else contador + 1
+    porcentaje <- round(contador / length(archivos) * 100)
+    cat("Analisando las hojas de cálculo en los libros de excel del directorio [", ruta_directorio, "]: ", porcentaje, "% completado\r")
+    #cat(porcentaje, "% completado\r")
+    # Definimos la ruta de cada libro de excel
+    ruta_archivo <- file.path(ruta_directorio, archivo)
+    # Verificamos que el archivo sea un libro de Excel
+    if ( grepl("\\.xlsx$|\\.xls$|\\.xl.*$", archivo) ) {
+      # Identificamos todas las hojas de un libro de excel
+      nombre_hoja <- readxl::excel_sheets(ruta_archivo)
+      # Incorporamos el nombre de todas las hojas a la lista
+      lista_nombres_hojas[[ruta_archivo]] <- nombre_hoja
+    } else {
+      cat("El archivo: [", ruta_archivo, "] no es una hoja de cálculo admisible.\n")
+    }
+  }
+  
+  # Determinamos los nombres presentes en la lista
+  nombres_hojas <- sort(unique(as.character(unlist(lista_nombres_hojas))))
+  
+  # Determinamos el número mayor de hojas entre los libros
+  max_length <- max(sapply(lista_nombres_hojas, length))
+  # Completamos con valores NA para poder formar filas con el mismo número de "hojas"
+  data_padded <- lapply(lista_nombres_hojas, function(x) {c(x, rep(NA, max_length - length(x)))})
+  # Creamos una tabla que resume toda la información
+  tabla <- as.data.frame(data_padded, stringsAsFactors = FALSE)
+  tabla <- as.data.frame(t(tabla))
+  colnames(tabla) <- paste("Hoja",seq(1,max_length))
+  
+  return(
+    hojas <- list(lista = lista_nombres_hojas, tabla = tabla, nombres = nombres_hojas)
+  )
+}
+
+selectorRutasHojasLibrosDirectorio <- function(ruta_directorio, nombre_hoja_buscar, anio_inicio) {
+  
+  # Esta función retorna las rutas de los libros con las hojas a partir de un año espedificado
+  
+  # Ejemplo de uso: selectorRutasHojasLibrosDirectorio(ruta_directorio = "data/Fuente/SB/PRIVADA", nombre_hoja_buscar = "balance", anio_inicio = 2013)
+  
+  # NOTA: Se emplea la función `hojasLibrosExcelDirectorio` para determinar la ruta de las hojas de interés.
+  
+  # Determinamos un vector de búsqueda para la condición temporal
+  fechas_admisibles <- paste(seq(anio_inicio,2100,1), collapse = "|")
+  # Llamamos a la función para crear el objeto hojas con la información de todos los libros en el directorio
+  hojas <- hojasLibrosExcelDirectorio(ruta_directorio = ruta_directorio)
+  # Identificamos lógicamente los libros que contienen una Hoja con el nombre `nombre_hoja_buscar`
+  contiene_hoja_buscada <- sapply(hojas$lista, function(x) any(grepl(nombre_hoja_buscar, x, ignore.case = TRUE)))
+  # Especificamos los indices correspondientes
+  indices <- which(contiene_hoja_buscada)
+  if ( length(indices) > 0 ) { 
+    # Obtenemos las rutas correspondientes
+    rutas_libros_hojas_buscadas <- names(hojas$lista)[indices]
+    # Identificamos lógicamente las rutas de archivos que cumplen la fecha admisible
+    condicion_temporal <- sapply(rutas_libros_hojas_buscadas, function(x) any(grepl(fechas_admisibles, x, ignore.case = TRUE)))
+    # Determinamos las rutas de los libros con las hojas buscadas
+    rutas_seleccionadas <- rutas_libros_hojas_buscadas[condicion_temporal]
+    
+    return(rutas_seleccionadas)
+  } else {
+    cat('\nNo se encontró ninguna "Hoja" con el nombre: [', nombre_hoja_buscar, '] en los "Libros" de Excel examinados.')
+  }
+}
+
+modificarTipoDatoColumnaSB <- function(columna, tamanho_muestra = 100, probabilidad_ocurrencia = 0.8) {
+  
+  # Esta función permite identificar y modificar el tipo de dato de una columna.
+  
+  # Ejemplo de uso: columna <- modificarTipoDatoColumnaSB(columna, tamanho_muestra = 1000, probabilidad_ocurrencia = 0.8)
+  
+  # Determinamos una muestra en las primeras columnas de la tabla
+  tamanho_columna <- length(columna)
+  if ( tamanho_muestra < 0.1*tamanho_columna ) tamanho_muestra <- round(0.25*tamanho_columna)
+  columna_muestra <- head(columna, tamanho_muestra)
+  
+  # Determinamos expresiones regulares para excluir expresiones con puntos y solo admitir con números
+  expresion_regular_codigo <- "^[[:digit:]]{1,6}$"
+  expresion_regular_decimal <- "^([.,][0-9]+)?$"
+  # Determinamos la prueba lógica para código
+  prueba_codigo <-
+    ( grepl(expresion_regular_codigo, columna_muestra) &
+        !grepl(expresion_regular_decimal, columna_muestra) ) |
+    is.na(columna_muestra)
+  # Determinamos expresiones regulares para identificar números con o sin decimales
+  expresion_regular_numero <- "^[0-9]+([.,][0-9]+)?$"
+  # Determinamos la prueba lógica para números
+  prueba_numero <- grepl(expresion_regular_numero, columna_muestra) | is.na(columna_muestra)
+  # Determinamos expresiones regulares para texto
+  expresion_regular_texto <- "[[:alpha:]]"
+  # Determinamos la prueba lógica para texto
+  prueba_texto <- grepl(expresion_regular_texto, columna_muestra) | is.na(columna_muestra)
+  # Determinamos expresiones regulares para texto NA como palabra completa y para el cero
+  expresion_regular_cero <- "^[0]?$"
+  expresion_regular_na <- "(?i)\\bna\\b"
+  # Determinamos la prueba lógica para texto na
+  prueba_cero_na <- all(
+    grepl(expresion_regular_cero, columna_muestra) |
+      grepl(expresion_regular_na, columna_muestra) | 
+      is.na(columna_muestra))
+  # Asumiendo distribución Poisson para cada caso, calculamos un estimador para la media que representa la tasa media de ocurrencia
+  media_codigo <- mean(prueba_codigo, na.rm = TRUE)
+  media_numero <- mean(prueba_numero, na.rm = TRUE)
+  media_texto <- mean(prueba_texto, na.rm = TRUE)
+  
+  # Determinamos la mayor probabilidad de ocurrencia
+  if ( media_numero >= probabilidad_ocurrencia & media_numero > media_codigo & media_codigo >= media_texto ) {
+    if ( class(columna) != "numeric" ) columna <- as.numeric(columna)
+  } else if ( media_codigo >= probabilidad_ocurrencia & media_codigo > media_numero & media_numero >= media_texto  ) {
+    if ( class(columna) != "character" ) columna <- as.character(columna)
+  } else if ( media_texto >= probabilidad_ocurrencia & media_texto > media_codigo & media_codigo >= media_numero ) {
+    if ( class(columna) != "character" ) columna <- as.character(columna)
+  } else if ( prueba_cero_na ) {
+    if ( class(columna) != "numeric" ) columna <- as.numeric(columna)
+  } 
+  
+  return(columna)
+}
+
+modificarTipoDatoTablaSB <- function(tabla, tamanho_muestra = 100, probabilidad_ocurrencia = 0.8) {
+  
+  # Esta función permite identificar y modificar el tipo de dato de una columna, empleando la función para la misma tarea en columna
+  
+  # Ejemplo de uso: tabla <- modificarTipoDatoTablaSB(columna, tamanho_muestra = 1000, probabilidad_ocurrencia = 0.8)
+  
+  k <- 1
+  for (columna in tabla) {
+    tabla[k] = modificarTipoDatoColumnaSB(columna, tamanho_muestra = 100, probabilidad_ocurrencia = 0.8)
+    k <- k + 1
+  }
+  
+  return(tabla)
+}
+
+modificadorNombresColumnasTablasIF <- function(catalogo = NULL, tabla) {
+  
+  # Función para identificar, modificar y eliminar los nombres de las columnas de una tabla utilizando un catálogo de operadores y el método de similitud de cadenas Jaro-Winkler.
+  
+  # Ejemplo de uso: tabla <- modificadorNombresColumnasTablasIF(tabla = tabla)
+  
+  if ( is.null(catalogo) ) {
+    # Requerimiento de paquetes
+    if (!require("readxl")) { 
+      install.packages("readxl")
+      library(readxl)
+    }
+    # Leemos el catalogo de una libro de Excel
+    catalogo <- readxl::read_excel("data/Otros/Catálogo Operadores.xlsx")
+    # Se agrega 0 como número y "0" como carácter para  para nombres inadecuados en columnas
+    catalogo_complemento <- data.frame(
+      RUC = rep("0"),
+      Operadora = c(as.character(seq(0,9)),
+                    "NA", "FECHA", "CODIGO", "CUENTA",
+                    "BANCA MULTIPLE",
+                    "BANCOS PRIVADOS GRANDES",
+                    "BANCOS PRIVADOS MEDIANOS",
+                    "BANCOS PRIVADOS PEQUEÑOS",          
+                    "BANCOS PRIVADOS COMERCIALES",
+                    "BANCOS PRIVADOS CONSUMO",      
+                    "BANCOS PRIVADOS VIVIENDA",
+                    "BANCOS PRIVADOS DE MICROEMPRESA",
+                    "BANCOS PRIVADOS DE MICROCREDITO",
+                    "TOTAL BANCOS PRIVADOS"))
+    catalogo <- rbind(catalogo_complemento, catalogo)
+  }
+  
+  # Requerimiento de paquetes
+  if (!require("stringdist")) { 
+    install.packages("stringdist")
+    library(stringdist)
+  }
+  # Obtener los nombres de las columnas de la tabla
+  nombres_columnas <- colnames(tabla)
+  # Calcular la similitud de cadenas entre los elementos del catálogo y los nombres de las columnas
+  distancia <- as.data.frame(stringdist::stringsimmatrix(catalogo$Operadora, nombres_columnas, method = "jw" ))
+  # Colocar los nombres de las filas y columnas en la tabla generada
+  colnames(distancia) <- nombres_columnas
+  rownames(distancia) <- catalogo$Operadora
+  # Identificar el nombre del catálogo con la mayor similitud para cada columna
+  identificacion <- sapply(seq_along(distancia), function(columna) row.names(distancia)[which.max(distancia[[columna]])])
+  #View(data.frame(original = nombres_columnas, identificacion = identificacion))
+  # Renombrar las columnas de la tabla con los nombres identificados
+  names(tabla) <- identificacion
+  # Identificar las columnas con nombres erroneos
+  indice_columnas_eliminar <- which( names(tabla) %in% c("NA", as.character(seq(1,9))) )
+  # Notificar las columnas eliminadas
+  if ( length(indice_columnas_eliminar) > 0  ) {
+    # Eliminar las columnas con nombres inadecuados si las hubiera
+    tabla <- tabla[,-indice_columnas_eliminar]
+    cat("Se ha(n) eliminado la(s) siguiente(s) columna(s) mal identificada(s): [", paste0("'", paste(nombres_columnas[indice_columnas_eliminar], collapse = "', '"),"'"), "]\n")
+  } else {
+    cat("No se ha encontrado ninguna columna mal identificada.\n")
+  }
+  return(tabla)
+}
+
+eliminarFilasCODIGOnaCUENTAna <- function(tabla) {
+  
+  # Esta función elimina una fila si en la columna CODIGO hay texto o valor NA y en la columna CUENTA el valor es NA
+  
+  # NOTA: Aplicar esta función luego de `modificadorNombresColumnasTablasIF(tabla = .)`
+  
+  # Establecemos condición para existencia de las columnas CODIGO y CUENTA
+  if ( all(c("CODIGO","CUENTA") %in% names(tabla)) ) {
+    # Asignamos las columnas correspondientes
+    columna_codigo <- tabla$CODIGO
+    columna_cuenta <- tabla$CUENTA
+    # Determinamos expresiones regulares para texto
+    expresion_regular_texto <- "[[:alpha:]]"
+    # Prueba lógica para determinar la fila donde la columna CODIGO es texto o NA y la columna CUENTA es NA
+    prueba <-
+      ( grepl(expresion_regular_texto, columna_codigo) |
+          is.na(columna_codigo) ) &
+      is.na(columna_cuenta)
+    # Identificamos los indices de las filas correspondientes
+    indice_filas_eliminar <- which(prueba)
+    if ( length(indice_filas_eliminar) > 0 ) {
+      # Eliminamos la filas identificadas
+      tabla <- tabla[-indice_filas_eliminar,]
+      cat("Se ha(n) eliminado", length(indice_filas_eliminar), "fila(s) inconsistente(s).\n")
+    }
+  } else {
+    cat("No se han encontrado las columnas 'CODIGO' y 'CUENTA'.\n")
+  }
+  
+  return(tabla)
+}
+
+eliminarFilasCODIGOnaCUENTAcod <- function(tabla) {
+  
+  # Esta función elimina una fila si el valor en columna CODIGO es NA y en la columna CUENTA el valor es un código de 6 dígitos
+  
+  # NOTA: Aplicar esta función luego de `modificadorNombresColumnasTablasIF(tabla = .)`
+  
+  # Establecemos condición para existencia de las columnas CODIGO y CUENTA
+  if ( all( c("CODIGO","CUENTA") %in% names(tabla) ) ) {
+    # Asignamos las columnas correspondientes
+    columna_codigo <- tabla$CODIGO
+    columna_cuenta <- tabla$CUENTA
+    # Establecemos una expresión regular para un código de 6 dígitos
+    expresion_regular_codigo <- "^[[:digit:]]{1,6}$"
+    # Prueba lógica para determinar la fila donde la columna CODIGO NA y la columna CUENTA es un código de 6 dígitos
+    prueba <- is.na(columna_codigo) & grepl(expresion_regular_codigo, columna_cuenta)
+    # Identificamos los indices de las filas correspondientes
+    indice_filas_eliminar <- which(prueba)
+    if ( length(indice_filas_eliminar) > 0 ) {
+      # Eliminamos la filas identificadas
+      tabla <- tabla[-indice_filas_eliminar,]
+      cat("Se ha(n) eliminado", length(indice_filas_eliminar), "fila(s) inconsistente(s).\n")
+    }
+  } else {
+    cat("No se han encontrado las columnas 'CODIGO' y 'CUENTA'.\n")
+  }
+  
+  return(tabla)
+}
+
+# barraProgreso <- function(conjunto) { ####
+#   barra_progreso <- txtProgressBar(min = 0, max = length(conjunto), style = 3)
+#   if ( exists("contador_progreso") ) {
+#     #cat(paste0("\n[",contador_progreso,"]\n"))
+#     setTxtProgressBar(barra_progreso, contador_progreso)
+#     contador_progreso <<- contador_progreso + 1
+#   } else {
+#     contador_progreso <<- 1
+#   }
+#   cat(paste0("\n[",contador_progreso,"] "))
+#   if ( contador_progreso == length(conjunto) ) {
+#     close(barra_progreso)
+#     rm(contador_progreso, envir = .GlobalEnv)
+#   }
+# } ####
+
+
+# Herramientas en desarrollo ####
+
+frecuenciaEmpiricaRelativaOcurrenciaDecimalTexto <- function(cadena_texto) {
+  
+  # Esta función calcula la frecuencia relativa de la ocurrencia de la expresión de un número decimal en una columna.
+  
+  # cadena_texto: es un vector tipo char que puede contener diferentes tipos de información todos convertidos en carácteres.
+  
+  # Ejemplo: frecuenciaEmpiricaRelativaOcurrenciaDecimalTexto(c("a",1,3.14,Sys.Date())) devolverá 0.25 como la frecuencia relativa por le 3.14
+  
+  # Configuramos el objeto leído
+  
+  # Determinamos expresiones regulares para excluir expresiones con puntos y solo admitir con números
+  expresion_regular_codigo <- "^[[:digit:]]{1,6}$"
+  # Determinamos expresiones regulares para identificar números con o sin decimales, positivos o negativos, con o sin notación científica
+  #expresion_regular_numero <- "^[0-9]+([.,][0-9]+)?$"
+  #expresion_regular_numero <- "^[-]?[0-9]+([.,][0-9]+)?(E-?[0-9]+)?$"
+  expresion_regular_numero <- "^[-]?[0-9]+([.,][0-9]+)?([Ee][-+]?[0-9]+)?$"
+  # Determinamos expresiones regulares para para el cero como palabra completa
+  expresion_regular_cero <- "^[0]?$"
+  # Determinamos la prueba lógica para números decimales excluyendo los enteros pero aceptando el cero y NA
+  prueba_numero_decimal <- 
+    ( !grepl(expresion_regular_codigo, cadena_texto) & 
+        grepl(expresion_regular_numero, cadena_texto) ) |
+    grepl(expresion_regular_cero, cadena_texto) |
+    is.na(cadena_texto)
+  # Asumiendo distribución Poisson para cada caso, calculamos un estimador para la media que representa la tasa media de ocurrencia
+  frecuencia_relativa_ocurrencia <- mean(prueba_numero_decimal, na.rm = TRUE)
+  
+  return(frecuencia_relativa_ocurrencia)
+}
+
+indicePrimeraFilDecimalTabla <- function(tabla) {
+  
+  frecuencia_ocurrencia_decimal_filas <-
+    sapply(
+      1:nrow(tabla),
+      function(fila) {
+        cadena_texto <- as.character(tabla[fila,])
+        frecuenciaEmpiricaRelativaOcurrenciaDecimalTexto(cadena_texto)
+      }
+    )
+  # diferencia_absoluta <- abs(diff(frecuencia_ocurrencia_decimal_filas))
+  # diferencia_maxima <- max(diferencia_absoluta)
+  # intersect(which(diferencia_absoluta == diferencia_maxima), which.min(frecuencia_ocurrencia_decimal_filas)) + 1
+  primera_fila_decimal <- which.min(frecuencia_ocurrencia_decimal_filas) + 1
+  
+  return(primera_fila_decimal)
+}
+
+indicePrimeraColDecimalTabla <- function(tabla) {
+  
+  # Esta función permite identificar el índice de la primera columna con entradas decimales en una tabla.
+  
+  # Configuración objeto de entrada
+  frecuencia_ocurrencia_decimal_columnas <-
+    sapply(
+      tabla,
+      function(columna) {
+        cadena_texto <- as.character(columna)
+        frecuenciaEmpiricaRelativaOcurrenciaDecimalTexto(cadena_texto)
+      }
+    )
+  # Para clasificar, buscamos el máximo de las diferencias entre las frecuencias empíricas relativas de la ocurrencia de un número decimal
+  primera_columna_decimal <- which.max(abs(diff(unname(frecuencia_ocurrencia_decimal_columnas)))) + 1
+  
+  return(primera_columna_decimal)
+}
+
+analisisDifusoNLPFechaCorte <- function(tabla) {
+  
+  # Esta función procesa un texto relacionado a un la fecha de corte de los "Balances Financieros" de SB y devuelve el date más cercano a fecha de corte.
+  
+  # Paquete para manejo de fechas
+  if (!require("lubridate")) { 
+    install.packages("lubridate")
+    library(lubridate)
+  }
+  
+  # Paquete para procesamiento de lenguaje natural
+  if (!require("parsedate")) { 
+    install.packages("parsedate")
+    library(parsedate)
+  }
+  
+  # Paquete para analisis de texto
+  if (!require("stringdist")) { 
+    install.packages("stringdist")
+    library(stringdist)
+  }
+  
+  traductor_mes <- function(texto) {
+    
+    # Esta función modifica con la traducción al ingles correspondiente sean los nombres completos o las abreviaciones de los meses, para un posterior reconocimiento optimo de fecha
+    
+    texto_original <- tolower(texto)
+    # Creamos un diccionario para traducción y posterior reconocimiento optimo de fechas
+    meses <-
+      data.frame(
+        es = c("ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"),
+        #en = substr(strsplit(tolower(month.name), " "), 1, 3)
+        en = tolower(month.name)
+      )
+    # Definimos el patrón buscado en el texto
+    patron <- meses$es
+    # Definimos el texto de reemplazo
+    reemplazo <- meses$en
+    # Definimos los separadores admisibles para las palabras
+    separadores <- "[-,/, ]"
+    # Separamos cada palabra en sus letras componentes
+    palabras <- strsplit(texto_original, separadores)[[1]]
+    # palabras <- unlist(strsplit(texto_original, separadores))
+    # Elegimos únicamente las 3 primeros caracteres de cada palabra para obtener expresiones como: "ene"
+    palabras_abreviadas <- substr(palabras, 1, 3)
+    # Calculamos las similitudes entres las palabras abreviadas y el patrón de busqueda
+    similitudes <- stringdist::stringsimmatrix(palabras_abreviadas, patron, method = "jw")
+    # Se emplea una probabilidad de similitud del 90% para compensar el error por identidad con el máximo
+    #posiciones_max <- as.data.frame(which(similitudes >= 0.8*max(similitudes), arr.ind = TRUE))
+    # Buscamos los índices con las mayores coincidencias
+    posiciones_max <- as.data.frame(which(similitudes == max(similitudes), arr.ind = TRUE))
+    # Determinamos las abreviaciones similares
+    palabra_similar <- palabras[posiciones_max$row]
+    # Reemplazamos con la palabra completa las abreviaciones similares
+    reemplazo_similar <- reemplazo[posiciones_max$col]
+    # Modificamos uno a uno los nombres de los mes traducidos
+    texto_modificado <- texto_original
+    for ( k in seq_along(palabra_similar) ) {
+      texto_modificado <- gsub(palabra_similar[k], reemplazo_similar[k], texto_modificado)
+    }
+    return(texto_modificado)
+  }
+  prueba_anio <- function(texto) {
+    # Año actual a texto, para generar expresión regular de año, usan Sys.Date() y descomponiéndolo
+    anio_num <- year(Sys.Date())
+    anio_text <- strsplit(as.character(anio_num), split = "")[[1]]
+    # Establecemos una expresión regular que acepta 2000 hasta el año actual
+    expresion_regular_anio <- paste0("\\b(",anio_text[1],"[",0,"-",anio_text[2],"][",0,"-",anio_text[3],"][0-9])\\b")
+    # expresion_regular_anio <- "\\b(20[0-3][0-9])\\b$" # acepta desde 2000 hasta 2039
+    return(grepl(expresion_regular_anio, texto, ignore.case = TRUE))
+  }
+  prueba_mes <- function(texto) {
+    # Establecemos una expresión regular
+    expresion_regular_mes <- paste0(c("ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"), collapse = "|")
+    return(grepl(expresion_regular_mes, texto, ignore.case = TRUE))
+  }
+  prueba_dia <- function(texto) {
+    # Establecemos una expresión regular del día del mes
+    expresion_regular_dia <- "\\b([1-2]?[0-9]|3[0-1])\\b"
+    return(grepl(expresion_regular_dia, texto, ignore.case = TRUE))
+  }
+  formato_numerico_excel <- function(fecha) {
+    # Función para transformar a formato numérico de Excel una fecha date
+    # Fecha base de Excel
+    fecha_base_excel <- as.Date("1899-12-30")
+    return(as.numeric(difftime(as.Date(fecha), as.Date("1899-12-30"))))
+  }
+  prueba_fecha_excel <- function(texto) {
+    # Fecha de inicio de busqueda en formato numérico de Excel
+    fecha_num_excel_inicio <- formato_numerico_excel("2000-01-01")
+    # Fecha de inicio descompuesta en caracteres para formar expresión regular
+    fechaI <- strsplit(as.character(fecha_num_excel_inicio), split = "")[[1]]
+    # Fecha de actual en formato numérico de Excel para busqueda
+    fecha_num_excel_fin <- formato_numerico_excel(Sys.Date())
+    # Fecha de fin descompuesta en caracteres para formar expresión regular
+    fechaF <- strsplit(as.character(fecha_num_excel_fin), split = "")[[1]]
+    # Establecemos una expresión regular que acepte los formatos numéricos para fecha de Excel
+    expresion_regular_fecha_num_excel <-
+      paste0(
+        "^(",fechaI[1],"[",fechaI[2],"-9]","[",fechaI[3],"-9]","[",fechaI[4],"-9]","[",fechaI[5],"-9]|",
+        fechaF[1],"[0-9]{", length(fechaF)-1, "})"
+      )
+    return(grepl(expresion_regular_fecha_num_excel, texto))
+  }
+  prueba_fecha_date <- function(texto) {
+    # Establecemos una expresión regular que acepte variantes de formato fecha
+    expresion_regular_fecha_date <-
+      paste(c(
+        "\\b(20[0-9]{2}[-/][0-1][0-9][-/][0-3]?[0-9])\\b",
+        #"\\b(20[0-9]{2}[-/][[:alpha:]]{1,10}[-/][0-3]?[0-9])\\b",# NO USAR ALTERA EN EL CONDICIONAL
+        "\\b([0-3]?[0-9][-/][0-1][0-9][-/]20[0-9]{2})\\b" #,
+        #"\\b([0-3]?[0-9][-/][[:alpha:]]{1,10}[-/]20[0-9]{2})\\b"
+      ), collapse = "|"
+      )
+    return(grepl(expresion_regular_fecha_date, texto))
+  }
+  
+  # Empleamos la función indicePrimeraFilDecimalTabla() para identificar la primera fila decimal
+  indice_fila_nombres <- indicePrimeraFilDecimalTabla(tabla)
+  # Subtabla previa a los valores decimales, y a la fila de nombres de columnas, por eso se resta 2
+  subtabla <- tabla[1:(indice_fila_nombres-2),]
+  # Determinamos las coincidencias en la subtabla
+  coincidencias <-
+    apply(
+      subtabla, 2,
+      function(fila) {
+        prueba_fecha_date(fila) | prueba_fecha_excel(fila) | (prueba_anio(fila) & prueba_mes(fila)) 
+      })
+  # Identificamos los indices de las entradas con coincidencias
+  indices_celda <- data.frame(which(coincidencias, arr.ind = TRUE))
+  # Exigimos que haya al menos un resultado
+  if ( length(indices_celda) > 0 ) {
+    # Especificamos la primera coincidencia
+    contenido_celda <- as.character(subtabla[indices_celda$row[1], indices_celda$col[1]])
+  } else {
+    cat("\nNo se pudo encontrar una fecha.\n")
+    break
+  } 
+  
+  # Establecemos el proceso directo para formatos de fecha
+  
+  if ( prueba_fecha_date(contenido_celda) ) {
+    
+    fecha_identificada <- parsedate::parse_date(contenido_celda)
+    
+    # Establecemos la condición para cuando el texto leído corresponde a fecha en formato numérico de Excel
+    
+  } else if ( prueba_fecha_excel(contenido_celda) ) {
+    
+    # Determinamos el valor de la celda buscada con la fecha de corte
+    num_fecha_corte <- as.numeric(contenido_celda)
+    # Determinamos la fecha de corte
+    fecha_identificada <- as.Date( num_fecha_corte, origin = "1899-12-30")
+    
+    # Establecemos el procedimiento para el caso de tener un mes y un año reconocibles
+    
+  } else if ( prueba_anio(contenido_celda) & prueba_mes(contenido_celda) ) {
+    
+    # Dividimos el texto original en sus componentes por si hubiera más de una fecha
+    texto_dividido <- unlist(strsplit(contenido_celda, " "))
+    # Establecemos el proceso cuando haya solo un año, solo un mes, y no más de un día del mes
+    if ( sum(prueba_anio(texto_dividido)) == 1 & 
+         sum(prueba_mes(texto_dividido)) == 1 & 
+         sum(prueba_dia(texto_dividido)) <= 1 ) {
+      fechas_reconocidas <- traductor_mes(contenido_celda)
+      fecha_identificada <- parsedate::parse_date(fechas_reconocidas)
+      # Establecemos el proceso cuando hay más de una fecha en la celda elegida
+    } else {
+      # Traducimos el contenido de la celda elegida
+      fechas_reconocidas <- traductor_mes(contenido_celda)
+      # Empleamos un selector para el separador de frases, según formato
+      separadores_fechas <-
+        if ( grepl("-",contenido_celda, ignore.case = TRUE) ) {
+          " "
+        } else if ( grepl("de",contenido_celda, ignore.case = TRUE) ) {
+          c(" al "," hasta ")
+        }
+      # Separamos las diferentes frases relacionadas a fechas
+      fechas_reconocidas <- strsplit(fechas_reconocidas, separadores_fechas)[[1]]
+      # Agregamos un filtro para evitar frases sin el año
+      fechas_reconocidas <- fechas_reconocidas[prueba_anio(fechas_reconocidas)]
+      fechas_reconocidas <- parsedate::parse_date(fechas_reconocidas)
+      # Agregamos un filtro para elegir siempre la mayor de las fechas
+      fecha_identificada <- fechas_reconocidas[which.max(fechas_reconocidas)]
+    }
+  }
+  
+  # Determinamos el año
+  anio <- format(fecha_identificada, "%Y")
+  # Determinamos el mes
+  mes <- format(fecha_identificada, "%m")
+  # Determinamos una fecha preliminar
+  fecha_corte_preliminar <- paste(anio,mes,"01",sep = "-")
+  # Determinamos el último día del respectivo mes
+  fecha_corte <- as.Date(fecha_corte_preliminar) + months(1) - days(1)
+  
+  return(fecha_corte)
+}
+
+verificadorReconocimientoFechasCorte <- function(lista_hojas) {
+  
+  # Esta función permite enlistar las fechas de corte de los "Boletines Financieros" de la SB del que pertenece cada hoja de la lista
+  
+  # EJEMPLO:
+  # lista_hojasPYG <- listaImportacionDatosFuenteSB(nombre_hoja_buscada = "PYG")
+  # tablaFechasPYG <- verificadorReconocimientoFechas(lista_hojasPYG)
+  
+  lista_fechas <-
+    sapply(
+      lista_hojas,
+      function(tabla) {
+        fecha <- analisisDifusoNLPFechaCorte(tabla)
+        barraProgreso(lista_hojas)
+        return(fecha)
+      })
+  
+  fechas  <-
+    data.frame( fecha = as.Date(lista_fechas, origin = "1970-01-01") ) %>%
+    arrange(as.Date(fecha)) %>%
+    mutate(diferencia_meses = difftime(fecha, lag(fecha), units = "days"))
+  #mutate(diferencia_meses = difftime(fecha, lag(fecha), units = "months"))
+}
+
+eliminarFilasNA <- function(tabla, skip = 4) {
+  
+  # Esta función determina las filas únicamente con valores NA, a partir de una columna especificada para omisión
+  
+  # skip = 4 es circunstancial, por que las Hojas de Boletines Financieros, suelen empezar con sus valores numéricos en la columna 4
+  
+  # Esta funciòn se base en medidas de NA para delimitar la tabla
+  
+  # Configuramos las variables u objetos iniciales
+  tabla_sucia <- tabla
+  columna_inicio <- skip
+  # Determinamos las entradas NA, en cada columna
+  lista_indice_fila_NA_consecutivos <-
+    lapply(
+      columna_inicio:length(tabla_sucia),
+      function(indice_columna) {
+        # Identificamos la fila con valor NA en la tabla y columna especificadas
+        indice_fila_NA <- which(is.na(tabla_sucia[,indice_columna]))
+        # Calculamos la diferencia entre los índices de las filas anteriores
+        diferencia <- c(NA,diff(indice_fila_NA))
+        # Determinamos los índices de fila consecutivos con valores NA; identificando donde la diferencia es 1
+        indice_fila_NA_consecutivos <- indice_fila_NA[diferencia == 1]
+        # # Incluimos los índices de fila omitidos por paso de la diferencia prospectiva
+        # indice_fila_NA_consecutivos <- union(indice_fila_NA_consecutivos, indice_fila_NA_consecutivos-1)
+        # Incorporamos los índices de las filas NA del inicio
+        indice_fila_NA_consecutivos <- union(indice_fila_NA_consecutivos, indice_fila_NA)
+        # Ordenamos ascendente los índices identificados
+        indice_fila_NA_consecutivos <- sort(indice_fila_NA_consecutivos)
+      })
+  # La función Reduce en R aplica iterativamente una función a los elementos de una lista.
+  # Determinamos por intersección las filas con valores NA a eliminar
+  indice_fila_NA_eliminar <- Reduce(intersect, lista_indice_fila_NA_consecutivos)
+  # Definimos la nueva tabla omitiendo las filas NA
+  tabla_semilimpia <- tabla_sucia[-indice_fila_NA_eliminar,]
+  cat("Se ha(n) eliminado", length(indice_fila_NA_eliminar), "fila(s) con valores NA.\n")
+  
+  return(tabla_semilimpia)
+}
+
+crearTablaBoletinMensualSB <- function(tabla) {
+  
+  # CONSIDERAR PONER UN SKIP
+  
+  # Esta función crea una tabla de campos con la tabla que recibe
+  
+  # NOTA: Requiere emplear la función indicePrimeraFilDecimalTabla()
+  
+  # Ejemplo de uso: nueva_tabla <- crearTablaBoletinMensualSB(tabla)
+  
+  # # Empleamos la función `indicePrimeraFilDecimalTabla()` para obtener el indice de fila correspondiente
+  # indice_fila_nombres <- indicePrimeraFilDecimalTabla(tabla)
+  # Empleamos la función `indicePrimeraFilDecimalTabla()` para obtener el indice de fila correspondiente
+  indice_fila_nombres <- indicePrimeraFilDecimalTabla(tabla) - 1
+  # Creamos la nueva tabla a partir de la fila antes especificada
+  #nueva_tabla <- tabla[indice_fila_nombres+1:nrow(tabla), ]
+  nueva_tabla <- tabla[-(1:indice_fila_nombres), ]
+  # Asignamos los nombres de las columna
+  colnames(nueva_tabla) <- as.character(tabla[indice_fila_nombres,])
+  # Generar nombres únicos a partir de los nombres originales de las columnas para columnas sin nombre
+  colnames(nueva_tabla) <- make.unique(names(nueva_tabla))
+  
+  return(nueva_tabla)
+}
+
+tablaBoletinesFinancierosSB <- function(tabla, fecha_corte = NULL) {
+  
+  # Esta función aplica las transformaciones para convertir en tabla una hoja de excel de los libros con los "Boletines Financieros mensuales" de la SB.
+  
+  # tabla: es un data frame importado desde excel
+  # fecha_corte: debe ser una fecha de tipo date
+  
+  # Requerimiento de paquetes
+  if (!require("dplyr")) {
+    install.packages("dplyr")
+    library(dplyr)
+  }
+  
+  # Determinamos el índice de la primera columna con valores decimales
+  indice_col <- indicePrimeraColDecimalTabla(tabla)
+  # Leemos la fecha del corte en cada tabla
+  #fecha_corte <- identificarFechaCorteBoletinSB(tabla) # FUNCION EN DESUSO
+  fecha_corte <-
+    if ( is.null(fecha_corte) ) {
+     analisisDifusoNLPFechaCorte(tabla)
+    } else {
+       fecha_corte
+    }
+  # Aplicamos todas las transformaciones
+  tabla <- 
+    tabla %>%
+    eliminarFilasNA(tabla = ., skip = indice_col) %>%
+    crearTablaBoletinMensualSB() %>%
+    modificarTipoDatoTablaSB() %>%
+    mutate(`FECHA` = rep(fecha_corte)) %>%
+    select(`FECHA`, everything()) %>%
+    modificadorNombresColumnasTablasIF(tabla = .) %>%
+    eliminarFilasCODIGOnaCUENTAna() %>%
+    eliminarFilasCODIGOnaCUENTAcod()
+    
+  return(tabla)
+}
+
+listaImportacionDatosFuenteSB <- function(nombre_hoja_buscada = "BALANCE") {
+  
+  # Esta función importar como tablas las hojas con los "Balances Financieros" de los libros con los "Boletines Financieros mensuales" de la SB
+  
+  ## Determinación de Hojas de interés
+  # Periodos de empleo del nombre para la Hoja con el "Balance Financiero" en los "Boletines Financieros mensuales"
+  # "BAL": [2001,2002,2011,2012]
+  # "BAL SAB II": [2008-2011]
+  # "BALANCE": [2012, ...[
+  
+  # NOTA. Se emplea las funciones: `selectorRutasHojasLibrosDirectorio` y otras más
+  
+  # Se decide leer únicamente las Hojas "BALANCE" desde 2013 por que tienen una plantilla más homogénea
+  # rutas_balances_SB <-
+  #   selectorRutasHojasLibrosDirectorio(ruta_directorio = "data/Fuente/SB/PRIVADA", nombre_hoja_buscar = "balance", anio_inicio = 2013)
+  rutas_balances_SB <-
+    selectorRutasHojasLibrosDirectorio(ruta_directorio = "data/Fuente/SB/PRIVADA", nombre_hoja_buscar = tolower(nombre_hoja_buscada), anio_inicio = 2013)
+  
+  # Requerimiento de paquetes
+  if (!require("readxl")) {
+    install.packages("readxl")
+    library(readxl)
+  }
+  if (!require("dplyr")) {
+    install.packages("dplyr")
+    library(dplyr)
+  }
+  if (!require("stringdist")) {
+    install.packages("stringdist")
+    library(stringdist)
+  }
+  
+  if( exists("contador_progreso") ) rm(contador_progreso, envir = .GlobalEnv)
+  
+  lista_tablas <- list()
+  
+  for ( ruta in rutas_balances_SB){
+    barraProgreso(rutas_balances_SB)
+    cat("Leyendo el archivo: [", ruta, "]\n")
+    # Determinamos los nombres de las hojas de cada libro de Excel
+    nombres_hojas <- readxl::excel_sheets(ruta)
+    # Análisis difuso de texto para buscar la HOJA del LIBRO que coincide con el nombre buscado
+    distancias <- stringdist::stringdist(tolower(nombres_hojas), tolower(nombre_hoja_buscada), method = "lv")
+    # nombre_hoja_coincidencia <- nombres_hojas[distancias <= min(distancias)][1]
+    nombre_hoja_coincidencia <- nombres_hojas[which.min(distancias)]
+    nombre_tabla <- paste(basename(ruta),nombre_hoja_buscada)
+    # Importación de la hoja buscada como data frame
+    tabla <- readxl::read_excel(ruta, sheet = nombre_hoja_coincidencia, col_names = FALSE, skip = 0)
+    # Creamos la tabla de datos propiamente
+    lista_tablas[[nombre_tabla]] <- tabla
+  }
+  
+  return(lista_tablas)
+}
+
+listaImportacionModificacionDatosFuenteSB <- function(nombre_hoja_buscada = "BALANCE") {
+  
+  # Esta función importar como tablas las hojas con los "Balances Financieros" de los libros con los "Boletines Financieros mensuales" de la SB
+  # La única diferencia con la función `listaImportacionDatosFuenteSB` es que aquí se emplea `tablaBoletinesFinancierosSB` para modificar la tabla.
+  
+  ## Determinación de Hojas de interés
+  # Periodos de empleo del nombre para la Hoja con el "Balance Financiero" en los "Boletines Financieros mensuales"
+  # "BAL": [2001,2002,2011,2012]
+  # "BAL SAB II": [2008-2011]
+  # "BALANCE": [2012, ...[
+  
+  # NOTA. Se emplea varias funciones
+  
+  # Se decide leer únicamente las Hojas "BALANCE" desde 2013 por que tienen una plantilla más homogénea
+  # rutas_balances_SB <-
+  #   selectorRutasHojasLibrosDirectorio(ruta_directorio = "data/Fuente/SB/PRIVADA", nombre_hoja_buscar = "balance", anio_inicio = 2013)
+  rutas_balances_SB <-
+    selectorRutasHojasLibrosDirectorio(ruta_directorio = "data/Fuente/SB/PRIVADA", nombre_hoja_buscar = tolower(nombre_hoja_buscada), anio_inicio = 2013)
+  
+  # Requerimiento de paquetes
+  if (!require("readxl")) {
+    install.packages("readxl")
+    library(readxl)
+  }
+  if (!require("dplyr")) {
+    install.packages("dplyr")
+    library(dplyr)
+  }
+  if (!require("stringdist")) {
+    install.packages("stringdist")
+    library(stringdist)
+  }
+  
+  if( exists("contador_progreso") ) rm(contador_progreso, envir = .GlobalEnv)
+  
+  lista_tablas <- list()
+  
+  for ( ruta in rutas_balances_SB){
+    barraProgreso(rutas_balances_SB)
+    cat("Leyendo el archivo: [", ruta, "]\n")
+    # Determinamos los nombres de las hojas de cada libro de Excel
+    nombres_hojas <- readxl::excel_sheets(ruta)
+    # Análisis difuso de texto para buscar la HOJA del LIBRO que coincide con el nombre buscado
+    distancias <- stringdist::stringdist(tolower(nombres_hojas), tolower(nombre_hoja_buscada), method = "lv")
+    # nombre_hoja_coincidencia <- nombres_hojas[distancias <= min(distancias)][1]
+    nombre_hoja_coincidencia <- nombres_hojas[which.min(distancias)]
+    nombre_tabla <- paste(basename(ruta),nombre_hoja_buscada)
+    # Importación de la hoja buscada como data frame
+    tabla <- readxl::read_excel(ruta, sheet = nombre_hoja_coincidencia, col_names = FALSE, skip = 0)
+    # Creamos la tabla de datos propiamente
+    lista_tablas[[nombre_tabla]] <- tablaBoletinesFinancierosSB(tabla)
+  }
+  
+  return(lista_tablas)
+}
+
+compiladorHojasBalanceFinancieroSBP_HOJA <- function(nombre_hoja_buscada = "BALANCE") {
+  
+  tic <- Sys.time()
+  
+  # Requerimiento de paquetes
+  if (!require("reshape2")) { 
+    install.packages("reshape2")
+    library(reshape2)
+  }
+  
+  # Importamos las hojas de cálculo
+  lista_hojas_importadas <- listaImportacionDatosFuenteSB(nombre_hoja_buscada = nombre_hoja_buscada)
+  # Modificamos las hojas de cálculo para que sean tablas
+  lista_tablas <- lapply(lista_hojas_importadas, tablaBoletinesFinancierosSB)
+  
+  # # Importación y procesamiento de hojas de cálculo #
+  # lista_tablas <- listaImportacionModificacionDatosFuenteSB(nombre_hoja_buscada = nombre_hoja_buscada)
+  # Fundido (melting) de tablas
+  lista_tablas <- lapply(lista_tablas , function(tabla)
+    reshape2::melt(tabla, id.vars = colnames(tabla)[1:3], variable.name = "RAZON_SOCIAL", value.name = "SALDO"))
+  
+  # Verificamos que todas las columnas tengan el mismo tipo de datos
+  #all(as.character(sapply(seq_along(lista_tablas), function(k) class(lista_tablas[[k]]$FECHA ))) == "date")
+  prueba_codigo <- all(sapply(seq_along(lista_tablas), function(k) class(lista_tablas[[k]]$CODIGO )) == "character")
+  prueba_cuenta <- all(sapply(seq_along(lista_tablas), function(k) class(lista_tablas[[k]]$CUENTA )) == "character")
+  prueba_razon_social <- all(sapply(seq_along(lista_tablas), function(k) class(lista_tablas[[k]]$RAZON_SOCIAL )) == "factor")
+  prueba_saldo <- all(sapply(seq_along(lista_tablas), function(k) class(lista_tablas[[k]]$SALDO )) == "numeric")
+  
+  # Requerimiento de paquetes
+  if (!require("dplyr")) { 
+    install.packages("dplyr")
+    library(dplyr)
+  }
+  
+  # Rectificaciones de tipo de dato
+  if ( !prueba_codigo ) lista_tablas <- lapply(lista_tablas, function(tabla) tabla <- tabla %>% dplyr::mutate(`SALDO` = as.numeric(`SALDO`)) )
+  if ( !prueba_cuenta ) lista_tablas <- lapply(lista_tablas, function(tabla) tabla <- tabla %>% dplyr::mutate(`CUENTA` = as.numeric(`CUENTA`)) )
+  if ( !prueba_razon_social ) lista_tablas <- lapply(lista_tablas, function(tabla) tabla <- tabla %>% dplyr::mutate(`RAZON_SOCIAL` = as.numeric(`RAZON_SOCIAL`)) )
+  if ( !prueba_saldo ) lista_tablas <- lapply(lista_tablas, function(tabla) tabla <- tabla %>% dplyr::mutate(`SALDO` = as.numeric(`SALDO`)) )
+  
+  # Juntamos las tablas de toda la lista en una sola
+  cat("\nFusionando tablas...")
+  tabla_combinada  <- dplyr::bind_rows(lista_tablas)
+  cat("\nTamaño en memoria de la tabla compilada:", format(object.size(tabla_combinada), units = "auto"))
+  
+  # Exportacion la tabla consolidada
+  cat("\nExportando tabla resultante...")
+  #write.csv(tabla_combinada, "data/Base de Datos/SBP Balance Financiero.csv", row.names = FALSE)
+  nombre_archivo <- paste0("data/Base de Datos/SBP Boletin Financiero ", nombre_hoja_buscada, ".csv")
+  write.csv(tabla_combinada, nombre_archivo, row.names = FALSE)
+  cat("\nSe ha creado el archivo con la ruta: [", normalizePath(nombre_archivo), "]\n")
+  cat("\nTiempo transcurrido del proceso:", difftime(Sys.time(), tic, units = "mins"), "minutos.\n")
+  
+  return(tabla_combinada)
+}
+
+compiladorHojasBalanceFinancieroSB <- function() {
+  
+  # Esta función realiza todo el proceso necesario para crear la base de datos de los Balances Financieros mensuales de la SB
+  
+  # ETAPA 0: Llamado de paquetes ####
+  
+  # Inicializamos un cronometro para todo el proceso
+  tic_total <- Sys.time()
+  
+  # Requerimiento de paquetes
+  if (!require("dplyr")) { 
+    install.packages("dplyr")
+    library(dplyr)
+  }
+  
+  # Requerimiento de paquetes
+  if (!require("reshape2")) { 
+    install.packages("reshape2")
+    library(reshape2)
+  }
+  
+  # ETAPA 1: Importación de hojas de cálculo ####
+  
+  tic <- Sys.time()
+  cat("\n\nETAPA 1 de 4: Importación de hojas de cálculo\n")
+  # Importamos las hojas de cálculo "BALANCE" y "PYG"
+  lista_hojas_BAL <- listaImportacionDatosFuenteSB(nombre_hoja_buscada = "BALANCE")
+  lista_hojas_PYG <- listaImportacionDatosFuenteSB(nombre_hoja_buscada = "PYG")
+  cat("\n Duración:", difftime(Sys.time(), tic, units = "mins"), "minutos." )
+  
+  # Verificamos que todas las tablas en ambas listas tengan los mismos nombres
+  if ( !all(gsub(" BALANCE", "", names(lista_hojas_BAL)) == gsub(" PYG", "", names(lista_hojas_PYG))) ) {
+    cat("\nERROR: No coinciden los nombres de los archivos.")
+    break
+  }
+  
+  # ETAPA 2: Generación de tablas concatenadas ####
+  
+  tic <- Sys.time()
+  cat("\n\nETAPA 2 de 4: Generación de tablas concatenadas\n")
+  
+  lista_tablas_BAL_PYG_concatenadas <- list()
+  
+  for( k in seq_along(lista_hojas_BAL) ) {
+    barraProgreso(seq_along(lista_hojas_BAL))
+    # Debido a inconsistencias encontradas en las fechas de algunas de las hojas "PYG", empleamos las fechas de las hojas "BALANCE"
+    fecha_corte <- analisisDifusoNLPFechaCorte(lista_hojas_BAL[[k]])
+    # Modificamos las hoja "BALANCE" para convertirla en tabla
+    cat("\n[", names(lista_hojas_BAL)[k], "]\n")
+    tabla_BAL <- tablaBoletinesFinancierosSB(lista_hojas_BAL[[k]], fecha_corte)
+    # Modificamos las hoja "PYG" para convertirla en tabla
+    cat("\n[", names(lista_hojas_PYG)[k], "]\n")
+    tabla_PYG <- tablaBoletinesFinancierosSB(lista_hojas_PYG[[k]], fecha_corte)
+    # Se emplea la función `bind_rows` por que permimte concatenar tablas aún si tienen diferentes columnas, completando con NA
+    lista_tablas_BAL_PYG_concatenadas[[k]] <- dplyr::bind_rows(tabla_BAL,tabla_PYG)
+  }
+  # Modificamos el nombre de cada hoja, eliminando la palabra " BALANCE" 
+  names(lista_tablas_BAL_PYG_concatenadas) <- gsub(" BALANCE", "", names(lista_hojas_BAL))
+  cat("\n Duración:", difftime(Sys.time(), tic, units = "mins"), "minutos." )
+  
+  # ETAPA 3: Consolidación de tabla####
+  
+  tic <- Sys.time()
+  cat("\n\nETAPA 3 de 4: Consolidación de tabla\n")
+  
+  # Fundido (melting) de tablas
+  lista_tablas <-
+    lapply(lista_tablas_BAL_PYG_concatenadas , function(tabla)
+      reshape2::melt(tabla, id.vars = colnames(tabla)[1:3], variable.name = "RAZON_SOCIAL", value.name = "VALOR"))
+  
+  # Juntamos las tablas de toda la lista en una sola
+  tabla_combinada  <- dplyr::bind_rows(lista_tablas)
+  cat("\nTamaño en memoria de la tabla compilada:", format(object.size(tabla_combinada), units = "auto"))
+  cat("\n Duración:", difftime(Sys.time(), tic, units = "mins"), "minutos." )
+  
+  # ETAPA 4: Exportación de tabla####
+  tic <- Sys.time()
+  cat("\n\nETAPA 4 de 4: Exportación de tabla\n")
+  nombre_archivo <- paste0("data/Base de Datos/SBP Boletin Financiero ", max(tabla_combinada$FECHA), ".csv")
+  write.csv(tabla_combinada, nombre_archivo, row.names = FALSE)
+  cat("\nSe ha creado el archivo con la ruta: [", normalizePath(nombre_archivo), "]\n")
+  cat("\n Duración:", difftime(Sys.time(), tic, units = "mins"), "minutos." )
+  
+  cat("\n\nTiempo total transcurrido en el proceso:", difftime(Sys.time(), tic_total, units = "mins"), "minutos.\n")
+  
+}
+
+crearDirectorio <- function(nueva_ruta) {
+  
+  # Esta función permite crear cualesquier ruta especificada, dentro del directorio del proyecto.
+  
+  # EJEMPLO: crearDirectorio("data/Fuente/SB/PRIVADA")
+  
+  if ( !dir.exists(nueva_ruta)  ) {
+    # Separamos los nombres de las carpetas de la nueva ruta especificada
+    nombre_carpetas <- unlist(strsplit(nueva_ruta, "/"))
+    # Recursivamente creamos los subdirectoiros especificados
+    for ( k in seq_along(nombre_carpetas) ) {
+      # Definimos la ruta concatenada
+      subdirectorio <- paste(head(nombre_carpetas, k), collapse = "/")
+      if (!dir.exists(subdirectorio)) {
+        # Creamos el subdirectorio especificado
+        dir.create(subdirectorio)
+        cat("\nSe creo la carpeta: [",basename(subdirectorio),"] con la ruta: [", normalizePath(subdirectorio),"].\n")
+      } 
+    }
+  } else {
+    cat("\nLa carpeta: [", basename(nueva_ruta), "] ya existe en el directorio con ruta: [", normalizePath(nueva_ruta),"].\n")
+  }
+  
+}
+
+descompresionArchivosDirectorio <- function(origen, destino) {
+  
+  # Esta función permite descomprimir un directorio en una ruta de origen que contiene archivos .zip, en una ruta de destino especificada.
+  
+  # ARGUMENTOS:
+  # origen <- "data/Descargas/SB/Boletin Financiero Mensual/PUBLICA"
+  # destino <- "data/Fuente/SB/PUBLICA"
+  # EJEMPLO:
+  # descompresionArchivosDirectorio(origen, destino)
+  
+  # Verificamos la existencia del directorio de origen
+  if ( !dir.exists(origen) ) {
+    cat("\nNo se pudo encontrar el directorio de origen especificado, revise la ruta ingresada o la existencia del mismo.\n")
+    break
+  }
+  
+  # Establecer el directorio de destino para los archivos Descromprimidos
+  crearDirectorio(destino)
+  
+  # Listo los archivos del directorio
+  archivos <- list.files(origen, recursive = TRUE)
+  
+  # Requerimiento de paquetes
+  if (!require("utils")) { 
+    install.packages("utils")
+    library(utils)
+  }
+  
+  # Requerimiento de paquetes
+  if (!require("tools")) { 
+    install.packages("tools")
+    library(tools)
+  }
+  
+  # Descompresión de archivos
+  k <- 0
+  for ( archivo in archivos ) {
+    k <- k + 1
+    ruta_origen <- file.path( origen, archivo )
+    ruta_destino <- file.path( destino, dirname(archivo) )
+    if ( !dir.exists(ruta_destino) ) dir.create(ruta_destino)
+    if ( tools::file_ext(archivo) == "zip" ) {
+      cat(paste0("\n[",k,"]"),"Descomprimiendo el archivo: [", normalizePath(ruta_origen),"] ...\n")
+      # Intenta descomprimir el archivo zip utilizando unzip()
+      tryCatch(
+        {
+          utils::unzip(ruta_origen, exdir = ruta_destino)
+        },
+        error = function(e) {
+          # Ocurrió un error al descomprimir el archivo zip
+          message("Ocurrió un error al descomprimir el archivo zip: ", e$message)
+          
+          # Código para manejar el error, utilizando una herramienta externa para descomprimir el archivo zip
+          # Verifica si 7-Zip está instalado
+          cmd <- "where 7z"
+          output <- system(cmd, intern = TRUE)
+          if (length(output) > 0 && !startsWith(output[1], "INFO:")) {
+            # 7-Zip está instalado
+            # Define la ruta del archivo zip y la carpeta de destino
+            ruta_origen_normalizado <- normalizePath(ruta_origen)
+            ruta_destino_normalizado <- normalizePath(ruta_destino)
+            
+            # Descomprime el archivo zip utilizando 7-Zip
+            cmd <- paste('"C:\\Program Files\\7-Zip\\7z.exe" x "', 
+                         ruta_origen_normalizado, '" -o"', 
+                         ruta_destino_normalizado, '"', sep = "")
+            system(cmd)
+          } else {
+            # 7-Zip no está instalado
+            message("7-Zip no está instalado en este sistema. 
+          Puedes descargarlo desde https://www.7-zip.org/ e 
+          instalarlo antes de intentar descomprimir el archivo zip.")
+          }
+        }
+      )
+      
+    } else if ( tools::file_ext(archivo) == "xls" ) {
+      cat(paste0("\n[",k,"]"),"Copiando el archivo: [", normalizePath(ruta_origen),"] ...\n")
+      file.copy( ruta_origen, file.path(destino, archivo) )
+    }
+  }
+}
+
+xlsb2xlsx <- function(ruta_archivo_xlsb) {
+  
+  # Esta función permite transformar el formato de un archivo de Excel con extención ".xlsb" a ".xlsx" y reemplazarlo empleando Windows PowerShell
+  
+  # EJEMPLO:
+  # ruta_archivo_xlsb <- "data/Fuente/Casos Particulares/BOL_FIN_PUB_SEPT_20.xlsb"
+  # xlsb2xlsx(ruta_archivo_xlsb)
+  
+  verificadorExcel <- function() {
+    
+    # Esta función verifica la instalación de Excel
+    
+    # Script de Power Shell para verificar la instalación de Excel
+    script <- paste(
+      "$excelPath = Get-ItemProperty \"HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\excel.exe\" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path;",
+      #if ($excelPath) { 'installed' } else { 'not installed' }",
+      "if ($excelPath) { $true } else { $false }",
+      sep = "\n"
+    )
+    # Guardar el script en un archivo en el directorio principal
+    writeLines(script, "temporal.ps1")
+    # Ejecutar el script de PowerShell y capturar el resultado
+    result <- system("powershell -File temporal.ps1", intern = TRUE)
+    # Eliminar el archivo de script
+    file.remove("temporal.ps1")
+    # Devolver el resultado como un valor lógico en R
+    return(as.logical(result))
+  }
+  verificadorArchivo <- function(ruta_archivo_xlsb) {
+    if (file.exists(ruta_archivo_xlsb)) {
+      return(TRUE)
+    } else {
+      cat(paste("\nLa ruta no existe\n"))
+      return(FALSE)
+    }
+  }
+  verificadorFormato_xlsb <- function(ruta_archivo_xlsb) {
+    # Requerimiento de paquetes
+    if (!require("tools")) {
+      install.packages("tools")
+      library(tools)
+    }
+    
+    if (tools::file_ext(ruta_archivo_xlsb) == "xlsb") {
+      return(TRUE)
+    } else {
+      cat(paste("\nEl archivo con ruta: [", ruta_archivo_xlsb,"],",
+                "no es de formato \".xlsb\" por lo que no se realizaron cambios\n"))
+      return(FALSE)
+    }
+    
+  }
+  trasnformador2xlsb <- function(ruta_archivo_xlsb) {
+    # Ruta del archivo xlsb
+    xlsbFile <- normalizePath(ruta_archivo_xlsb)
+    
+    # Ruta del archivo xlsx
+    xlsxFile <- normalizePath(gsub(".xlsb", ".xlsx",ruta_archivo_xlsb))
+    
+    # Crear el script de PowerShell
+    script <- paste(
+      # Ruta del archivo xlsb
+      paste0("$xlsbFile = ", '"', xlsbFile, '"'),
+      # Ruta del archivo xlsx
+      paste0("$xlsxFile = ", '"', xlsxFile, '"'),
+      # Crear un objeto COM de Excel
+      "$excel = New-Object -ComObject Excel.Application",
+      # Deshabilitar las alertas
+      "$excel.DisplayAlerts = $false",
+      # Abrir el archivo xlsb
+      "$workbook = $excel.Workbooks.Open($xlsbFile)",
+      # Guardar como archivo xlsx, donde 1 corresponde al formato xls y 51 a xlsx
+      "$workbook.SaveAs($xlsxFile, 51)",
+      # Cerrar el libro y salir de Excel
+      "$workbook.Close()",
+      "$excel.Quit()",
+      sep = "\n"
+    )
+    
+    # Guardar el script en un archivo en el directorio principal
+    writeLines(script, "convert.ps1")
+    
+    # Mensaje
+    cat(paste("\nSe remplazo el archivo \".xlsb\" de ruta: [", xlsbFile,"],",
+              "con el archivo \".xlsx\" de ruta [", xlsxFile,"]\n"))
+    
+    # Ejecutar el script de PowerShell
+    shell("powershell -File convert.ps1", wait = TRUE)
+    
+    # Eliminar el archivo de script y el .xlsb original
+    file.remove("convert.ps1",xlsbFile)
+  }
+  
+  # Condiciones no admisibles
+  if ( verificadorArchivo(ruta_archivo_xlsb) && verificadorFormato_xlsb(ruta_archivo_xlsb)) {
+    if( verificadorExcel() ) trasnformador2xlsb(ruta_archivo_xlsb)
+  }
+  
+}
+
+exportarReporteTabla <- function(dataFrame, nombre_archivo) {
+  # Install and load the openxlsx package
+  if (!require("openxlsx")) { install.packages("openxlsx") }
+  library(openxlsx)
+  # Create a new workbook
+  wb <- openxlsx::createWorkbook()
+  # Add a worksheet to the workbook
+  openxlsx::addWorksheet(wb, "Reporte")
+  # Write the data frame to the worksheet and automatically adjust column widths
+  openxlsx::writeData(wb, "Reporte", dataFrame) #, autoWidth = TRUE)
+  # Directorio
+  rep_dir <- "data/Reportes"
+  #creacionDirectorio(directorio_base = "data", rep_dir)
+  crearDirectorio(rep_dir)
+  # Nombre archivo
+  nombre_archivo <- paste0(nombre_archivo, format(Sys.time(), " %Y-%m-%d_%HH%M.xlsx"))
+  # Ruta archivo
+  ruta_archivo <- file.path(rep_dir, nombre_archivo)
+  # Save the workbook to an Excel file
+  openxlsx::saveWorkbook(wb, ruta_archivo, overwrite = TRUE)
+  #openxlsx::write.xlsx(informacion, file.path(rep_dir,paste("Reporte Enlaces de Descarga",format(Sys.Date(), "%Y-%m-%d.xlsx"))), rowNames = FALSE)
+  cat("\nSe ha creado el archivo con la ruta: [", normalizePath(ruta_archivo), "]\n")
+}
+
+barraProgreso <- function(conjunto) {
+  barra_progreso <- txtProgressBar(min = 0, max = length(conjunto), style = 3)
+  nelementos <- length(conjunto)
+  if ( exists("contador_progreso") ) {
+    setTxtProgressBar(barra_progreso, contador_progreso)
+    marcador_cronometro_progreso <- Sys.time()
+    tiempo_transcurrido <- difftime(marcador_cronometro_progreso,inicio_cronometro_progreso,units = "sec")
+    #estimador_tiempo_restante <- (nelementos - contador_progreso)*(tiempo_transcurrido/contador_progreso)
+    estimador_tiempo_proceso <- nelementos*(tiempo_transcurrido/(contador_progreso))
+    cat("\nTiempo transcurrido:",
+        format(as.POSIXct(as.numeric(tiempo_transcurrido), origin = "1970-01-01", tz = "UTC"),"%H:%M:%S"),
+        #"\nTiempo restante:", estimador_tiempo_restante, "minutos")
+        " de ", format(as.POSIXct(as.numeric(estimador_tiempo_proceso), origin = "1970-01-01", tz = "UTC"),"%H:%M:%S"),
+        "estimados.")
+    contador_progreso <<- contador_progreso + 1
+  } else {
+    inicio_cronometro_progreso <<- Sys.time()
+    contador_progreso <<- 1
+  }
+  cat(paste0("\n[",contador_progreso,"] "))
+  if ( contador_progreso == length(conjunto) ) {
+    close(barra_progreso)
+    rm(contador_progreso, envir = .GlobalEnv)
+    rm(inicio_cronometro_progreso, envir = .GlobalEnv)
+  }
+}
+
+modificadorNombresColumnasTablasIF <- function(catalogo = NULL, tabla) {
+  
+  # Función para identificar, modificar y eliminar los nombres de las columnas de una tabla utilizando un catálogo de operadores y el método de similitud de cadenas Jaro-Winkler.
+  
+  # Ejemplo de uso: tabla <- modificadorNombresColumnasTablasIF(tabla = tabla)
+  
+  if ( is.null(catalogo) ) {
+    # Requerimiento de paquetes
+    if (!require("readxl")) { 
+      install.packages("readxl")
+      library(readxl)
+    }
+    # Leemos el catálogo de una libro de Excel
+    catalogo <- readxl::read_excel("data/Otros/Catálogo Operadores.xlsx")
+    # Se agrega 0 como número y "0" como carácter para nombres inadecuados en columnas
+    catalogo_complemento <- data.frame(
+      RUC = rep("0"),
+      Operadora = c("FECHA", "CODIGO", "CUENTA",
+                    "BANCA MULTIPLE",
+                    "BANCOS PRIVADOS GRANDES",
+                    "BANCOS PRIVADOS MEDIANOS",
+                    "BANCOS PRIVADOS PEQUEÑOS",          
+                    "BANCOS PRIVADOS COMERCIALES",
+                    "BANCOS PRIVADOS CONSUMO",      
+                    "BANCOS PRIVADOS VIVIENDA",
+                    "BANCOS PRIVADOS DE MICROEMPRESA",
+                    "BANCOS PRIVADOS DE MICROCREDITO",
+                    "TOTAL BANCOS PRIVADOS",
+                    "INSTITUCIONES FINANCIERAS DE PRIMER PISO",
+                    "INSTITUCIONES FINANCIERAS DE SEGUNDO PISO",
+                    "TOTAL BANCA PÚBLICA"))
+    catalogo <- rbind(catalogo_complemento, catalogo)
+  }
+  
+  # Requerimiento de paquetes
+  if (!require("stringdist")) { 
+    install.packages("stringdist")
+    library(stringdist)
+  }
+  # Obtener los nombres de las columnas de la tabla
+  nombres_columnas <- colnames(tabla)
+  # Calcular la similitud de cadenas entre los elementos del catálogo y los nombres de las columnas
+  distancia <- as.data.frame(stringdist::stringsimmatrix(catalogo$Operadora, nombres_columnas, method = "jw" ))
+  # Colocar los nombres de las filas y columnas en la tabla generada
+  colnames(distancia) <- nombres_columnas
+  rownames(distancia) <- catalogo$Operadora
+  # Identificar el nombre del catálogo con la mayor similitud para cada columna
+  identificacion <- sapply(seq_along(distancia), function(columna) row.names(distancia)[which.max(distancia[[columna]])])
+  #View(data.frame(original = nombres_columnas, identificacion = identificacion))
+  # Renombrar las columnas de la tabla con los nombres identificados
+  names(tabla) <- identificacion
+  
+  return(tabla)
+}
+
+hojaToTablaBoletinesFinancierosSB <- function(ruta_libro, nombre_hoja, fecha_corte = NULL) {
+  
+  # Esta función permite extraer la tabla de datos contenida en un hoja de cálculo correspondiente a los "Boletines Financieros mensuales" de la SB
+  
+  # ARGUMENTOS:
+  # ruta_libro <- "data/Fuente/SB/PRIVADA/2023/FINANCIERO MENSUAL BANCA PRIVADA 2023_02.xlsx"
+  # nombre_hoja <- "BALANCE"
+  # fecha_corte <- "2023-02-29"
+  # EJEMPLO: tabla <- hojaToTablaBoletinesFinancierosSB(ruta_libro, nombre_hoja, fecha_corte)
+  
+  # Requerimiento de paquetes
+  if (!require("readxl")) {
+    install.packages("readxl")
+    library(readxl)
+  }
+  if (!require("dplyr")) {
+    install.packages("dplyr")
+    library(dplyr)
+  }
+  #
+  #ruta_libro <- rutas_libros_seleccionados[85] #83
+  #
+  # Importamos las 30 primeras filas de una hoja específica de un libro de excel en una ruta determinada
+  hoja <- readxl::read_excel(ruta_libro, sheet = nombre_hoja, col_names = FALSE, n_max = 30)
+  # # Determinamos la fecha más probable contenida en la hoja importada
+  # fecha_corte <- analisisDifusoNLPFechaCorte(hoja)
+  # Regla de decisión para la fecha de corte
+  fecha_corte <-
+    if ( is.null(fecha_corte) ) {
+      # Determinamos la fecha más probable contenida en la hoja importada
+      analisisDifusoNLPFechaCorte(hoja)
+    } else {
+      fecha_corte
+    }
+  # Determinamos la fila más probable con los nombres de las columnas
+  indice_fila_nombres_columnas <- indicePrimeraFilDecimalTabla(hoja) - 1
+  # Almacenamos la fila con los nombres de las columnas
+  nombres_columnas <- unname(unlist(hoja[indice_fila_nombres_columnas,]))
+  # Importamos una tabla de prueba para verificar la correcta asignación de los nombres de las columnas en sus 20 primeras filas
+  tabla_prueba <- readxl::read_excel(ruta_libro, sheet = nombre_hoja, col_names = TRUE, skip = indice_fila_nombres_columnas, n_max = 20)
+  # Verificamos si coinciden adecuadamente los nombres de las columnas
+  if ( mean(nombres_columnas == names(tabla_prueba), na.rm = TRUE) < 0.8 ) {
+    # Retrocedemos un índice en las filas previo a iterear para incluir cualquier caso exepcional
+    indice_fila_nombres_columnas <- indice_fila_nombres_columnas - 2
+    # Iteramos hasta que hayan coincidencias en al menos el 80%
+    while ( mean(nombres_columnas == names(tabla_prueba), na.rm = TRUE) < 0.8 & indice_fila_nombres_columnas <= 20 ) {
+      # Incrementamos el índice de la fila para continuar la prueba
+      indice_fila_nombres_columnas <- indice_fila_nombres_columnas + 1
+      # Reimportamos la tabla de prueba para verificar la correcta asignación de los nombres de las columnas en sus 20 primeras filas
+      tabla_prueba <- readxl::read_excel(ruta_libro, sheet = nombre_hoja, col_names = TRUE, skip = indice_fila_nombres_columnas, n_max = 20)
+    }
+  }
+  # Inicializamos la variable para almacenar la advertencias
+  advertencias <- NULL
+  # Volvemos a importar la hoja de cálculo pero especificando la fija de inicio, para que se reconozca el tipo de dato y nombre de cada columna
+  tabla <-
+    # Usamos withCallingHandlers() para capturar las advertencias generadas durante la ejecución del código y almacenarlas en una variable
+    withCallingHandlers(
+      # Importamos únicamente la tabla de datos contenida en la hoja especificada, saltando las primeras filas
+      readxl::read_excel(ruta_libro,
+                         sheet = nombre_hoja,
+                         col_names = TRUE,
+                         skip = indice_fila_nombres_columnas),
+      # Empleamos una función como manejador de advertencias
+      warning = function(w) {
+        # La función toma un argumento w, que es un objeto de advertencia que contiene información sobre la advertencia generada
+        advertencias <<- c(advertencias, w$message)
+        # Suprimimos la advertencia y evitamos que la advertencia se muestre en la consola y permite que el código continúe ejecutándose normalmente
+        invokeRestart("muffleWarning")
+      }
+    )
+  # Agregamos las advertencias como un atributo de la tabla
+  attr(tabla, "advertencias") <- advertencias
+  # Agregamos la columna con la fecha del "Boletín Financiero mensual"
+  tabla <-
+    tabla %>%
+    # # Eliminamos la columna con el nombre "1" solamente si existe
+    # select(-one_of("1")) %>%
+    # # Eliminamos todas las columnas cuyos nombres empiecen con "..."
+    # select(-starts_with("...")) %>%
+    # # Elegimos las columnas con nombres formados por palabras únicamente
+    # select(matches("[[:alpha:]]+$", .)) %>%
+    # Eliminamos las columnas que no contengan caracteres alfabéticos
+    select( -matches("^[^[:alpha:]]+$", .) ) %>%
+    # Eliminamos las filas que contienen únicamente valores NA
+    filter( !if_all(everything(), is.na) ) %>%
+    # Empleamos la función creada para modificar los nombres de las columnas según un catálogo por defecto
+    modificadorNombresColumnasTablasIF(tabla = .) %>%
+    # Modificamos la columna CODIGO a texto
+    mutate(CODIGO = as.character(CODIGO)) %>%
+    # Modificamos la columna CUENTA a texto
+    mutate(CUENTA = as.character(CUENTA)) %>%
+    # Modificamos el resto de columnas a numéricas
+    mutate_at(vars(-CODIGO, -CUENTA), as.numeric) %>%
+    # Eliminamos todas las filas donde el valor en las columnas "CODIGO" y "CUENTA" es NA
+    filter( !(is.na(CODIGO) & is.na(CUENTA)) ) %>%
+    # Eliminamos las filas donde todas las columnas son NA excepto CUENTA
+    filter( !if_all(-CUENTA, is.na) ) %>%
+    # Eliminamos las filas donde la columna CODIGO tenga letras mientras todas las las demás columnas son NA
+    filter( !(grepl("[[:alpha:]]+",CODIGO) & if_all(-CODIGO, is.na)) ) %>%
+    # Agregamos la columna con la fechas de corte
+    mutate(`FECHA` = rep(fecha_corte)) %>%
+    # Movemos la columna FECHA al inicio de la tabla
+    select(`FECHA`, everything())
+  # Agregamos metadatos como atributo de la tabla
+  #attr(tabla, "fecha_creacion") <- Sys.Date()
+  
+  return(tabla)
+}
+
+compiladorHojasBalanceFinancieroSBprivada <- function(ruta_directorio = NULL) {
+  
+  # Esta función realiza todo el proceso necesario para crear la base de datos de los Balances Financieros mensuales de la SB
+  
+  # Requerimiento de paquetes
+  if (!require("readxl")) { 
+    install.packages("readxl")
+    library(readxl)
+  }
+  
+  # Requerimiento de paquetes
+  if (!require("dplyr")) { 
+    install.packages("dplyr")
+    library(dplyr)
+  }
+  
+  # Requerimiento de paquetes
+  if (!require("reshape2")) { 
+    install.packages("reshape2")
+    library(reshape2)
+  }
+  
+  # Establecemos la ruta del directorio fuente de los libros de excel con los "Boletines Financieros mensuales"
+  ruta_directorio <- "data/Fuente/SB/PRIVADA"
+  # Determinamos los archivos presentes en directorio fuente
+  archivos_directorio <- list.files(ruta_directorio, recursive = TRUE)
+  # Determinamos todas las rutas de los archivos en el directorio
+  rutas_libros <- file.path(ruta_directorio, archivos_directorio)
+  
+  # DESARROLLO
+  # Determinamos los archivos a tranformar de formato
+  rutas_transformar <- rutas_libros[tools::file_ext(rutas_libros) == "xlsb"]
+  # Realizamos los cambios solo si son necesarios
+  if ( length(rutas_transformar) > 0 ) {
+    # Cambiar el formato
+    purrr::map(rutas_transformar, xlsb2xlsx)
+    # Volvemos a determinar los archivos presentes en directorio fuente
+    archivos_directorio <- list.files(ruta_directorio, recursive = TRUE)
+    # Volvemos a determinar todas las rutas de los archivos en el directorio luego del cambio de foramto
+    rutas_libros <- file.path(ruta_directorio, archivos_directorio)
+  }
+  # DESARROLLO
+  
+  # Establecemos una prueba con expresión regular para filtrar los años 2013-2029
+  prueba_anio <- grepl("(201[3-9])|(202[0-9])",rutas_libros)
+  # Filtramos las rutas con los años establecidos
+  rutas_libros_seleccionados <- rutas_libros[prueba_anio]
+  # Limpiamos la barra de progreso
+  rm(contador_progreso)
+  # Inicializamos la lista de las tablas concatenadas de BALANCE y PYG
+  lista_tablas_BAL_PYG_concatenadas <- list()
+  # Definimos el bucle de ejecución
+  for ( ruta_libro in rutas_libros_seleccionados ) {
+    # Importamos las 20 primeras filas de la hoja BALANCE para identificar la fecha de corte
+    hoja <- readxl::read_excel(ruta_libro, sheet = "BALANCE", n_max = 20)
+    # Identificamos la fecha de corte
+    fecha_corte <- analisisDifusoNLPFechaCorte(hoja)
+    # Extraemos la tabla de BALANCE
+    tabla_BAL <- hojaToTablaBoletinesFinancierosSB(ruta_libro, "BALANCE", fecha_corte)
+    # Extraemos la tabla de PYG
+    tabla_PYG <- hojaToTablaBoletinesFinancierosSB(ruta_libro, "PYG", fecha_corte)
+    # Definimos el nombre de para cada tabla
+    nombre_tabla <- basename(ruta_libro)
+    # Asignamos la tabla concatenada de BALANCE y PYG a un elemento de la lista de tablas
+    lista_tablas_BAL_PYG_concatenadas[[nombre_tabla]] <- dplyr::bind_rows(tabla_BAL,tabla_PYG)
+    # Ejecutamos el código para la barra de progreso
+    barraProgreso(rutas_libros_seleccionados)
+  }
+  # Concatenamos todas las tablas de la lista generada
+  tabla_BAL_PYG <- dplyr::bind_rows(lista_tablas_BAL_PYG_concatenadas)
+  # Asignamos el registro completo de advertencias (warnings) generadas al convertir a tabla las hojas de cálculo
+  registro_advertencias <-
+    sapply(seq_along(lista_tablas_BAL_PYG_concatenadas),
+           function(k) attr(lista_tablas_BAL_PYG_concatenadas[[k]],"advertencias"))
+  # Recuperamos los nombres de cada archivo para el registro de advertencias
+  names(registro_advertencias) <- names(lista_tablas_BAL_PYG_concatenadas)
+  # Asignamos la información de las advertencias a un data frame
+  reporte_consolidacion_BAL_PYG <-
+    data.frame(
+      Archivo = names(unlist(registro_advertencias)),
+      Advertencia = unname(unlist(registro_advertencias)))
+  # Exportamos el reporte con el registro de las advertencias
+  exportarReporteTabla(reporte_consolidacion_BAL_PYG, "Reporte Advertencias en Consolidación Balances Financieros SB PRIVADA")
+  # Fundido (melting) de tabla
+  tabla_BAL_PYG_fundida <-
+    reshape2::melt(tabla_BAL_PYG,
+                   id.vars = colnames(tabla_BAL_PYG)[1:3],
+                   variable.name = "RAZON_SOCIAL",
+                   value.name = "VALOR")
+  # Exportación de base de datos generada
+  tic <- Sys.time()
+  cat("\n\nEspere unos minutos, exportando...\n")
+  nombre_archivo <- paste0("data/Base de Datos/SB PRIVADA Boletin Financiero ", max(tabla_BAL_PYG_fundida$FECHA), ".csv")
+  write.csv(tabla_BAL_PYG_fundida, nombre_archivo, row.names = FALSE)
+  cat("\nSe ha creado el archivo con la ruta: [", normalizePath(nombre_archivo), "]\n")
+  cat("\n Duración:", difftime(Sys.time(), tic, units = "mins"), "minutos." )
+  
+  return(list(
+    tabla_BAL_PYG = tabla_BAL_PYG,
+    tabla_BAL_PYG_fundida = tabla_BAL_PYG_fundida
+  ))
+}

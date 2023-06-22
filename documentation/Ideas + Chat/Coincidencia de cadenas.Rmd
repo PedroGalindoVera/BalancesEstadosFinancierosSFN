@@ -1,0 +1,24 @@
+---
+title: "Ideas + Chat"
+author: "Pedro Galindo Vera"
+date: "2023-03-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+If you want to search for a string in a character vector in R while ignoring case and small errors, you can use the **`grep()`** function with the **`ignore.case`** argument set to **`TRUE`**. For example:
+
+    grep("jardin", nombres, ignore.case = TRUE, value = TRUE)
+
+This will return a character vector containing all elements of **`nombres`** that contain the string "jardin" while ignoring case. However, this method does not account for small errors in spelling. To do that, you might consider using a fuzzy string matching package like **`stringdist`** or **`fuzzywuzzyR`**.
+
+**`stringdist`** y **`fuzzywuzzyR`** son paquetes en R que permiten realizar coincidencias de cadenas difusas. El paquete **`stringdist`** implementa una versión de coincidencia de cadenas aproximada de la función nativa **`match`** de R y ofrece búsqueda de texto difusa basada en varias medidas de distancia de cadena. [Puede calcular varias distancias de cadena basadas en ediciones (Damerau-Levenshtein, Hamming, Levenshtein, alineación óptima de cadenas), qgrams (q-gram, coseno, distancia de Jaccard) o métricas heurísticas (Jaro, Jaro-Winkler) ^**1**^](https://cran.r-project.org/web/packages/stringdist/index.html).
+
+El paquete **`fuzzywuzzyR`** es una implementación en R del paquete **`fuzzywuzzy`** de Python. [Utiliza la distancia de Levenshtein para calcular las diferencias entre secuencias ^**2**^](https://cran.r-project.org/web/packages/fuzzywuzzyR/index.html).
+
+Ambos paquetes pueden ser útiles para encontrar coincidencias aproximadas entre cadenas de caracteres.
+
+**Idea**. Entrenar con R para identificar errores en la base de datos

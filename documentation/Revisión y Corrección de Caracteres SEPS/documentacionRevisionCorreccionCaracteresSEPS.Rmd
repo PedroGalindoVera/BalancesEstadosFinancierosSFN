@@ -1,0 +1,116 @@
+---
+title: "Reporte de Revisión de Caracteres en Base de Datos de Estados Financieros SEPS"
+author: "Pedro Galindo Vera"
+date: "2023-05-03"
+output:
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Importación de la base de datos
+
+```{r}
+library(readr)
+ruta <- "D:\\INNOVACION\\PASANTE\\DESARROLLO\\BalanceFinacieroSFN\\data\\Base de Datos\\SEPS Bases de Datos 2023-03-31.csv"
+SEPS <- read_csv(ruta, col_types = cols(FECHA = col_date(),CODIGO = col_integer()))
+```
+
+# Nombres encontrados en el campo `RAZON_SOCIAL`
+
+```{r}
+nombres <- sort(unique(SEPS$RAZON_SOCIAL))
+```
+
+## Identifiación de caracteres a cambiar
+
+Excluyendo los caracteres alfabéticos y de separación se tiene
+
+```{r}
+nombres[grepl("[^[:alpha:] -./]", nombres)] 
+```
+
+## Hallazgos
+
+Observando la lista anterior identificamos los siguientes caracteres extraños
+
+```{r}
+nombres[grepl("Ã‘", nombres)]
+nombres[grepl("Ã‰", nombres)]
+nombres[grepl("Ã\u008d", nombres)]
+nombres[grepl("Ã“", nombres)]
+```
+
+## Correcciones plausibles
+
+```{r}
+nombres <- gsub("Ã‘","Ñ",nombres)
+nombres <- gsub("Ã‰","É",nombres)
+nombres <- gsub("Ã\u008d","Í",nombres)
+nombres <- gsub("Ã“","Ó",nombres)
+```
+
+## Verificación
+
+```{r}
+nombres[grepl("[^[:alpha:] -./]", nombres)] 
+```
+
+## Mejora en la expresión regular
+
+Para agregar comillas a la expresión regular, asegúrate de colocar el carácter **`-`** al final del rango de caracteres dentro de los corchetes **`[]`**. De lo contrario, R interpretará el carácter **`-`** como un rango de caracteres y generará un error.
+
+```{r}
+nombres <- sort(unique(SEPS$RAZON_SOCIAL))
+expresion_regular <- "[^[:alpha:][:digit:] .,;/\"-]"
+prueba <- grepl(expresion_regular,nombres)
+nombres[prueba]
+```
+*Observación.* Al agregarse en la expresión general las comillas `"` para que las omitiera `grepl` también dejó de reconocerse a `Ã“`.
+
+## Identificación de archivos con caracteres mal identificados
+
+### Muestreo para identificación por el año, los archivos con caracteres mal identificados
+
+```{r}
+tamanho_muestra <- round(0.05*nrow(SEPS))
+indices_muestra <- sample(1:nrow(SEPS),tamanho_muestra)
+tabla_muestra <- SEPS[indices_muestra,]
+expresion_regular <- "[^[:alpha:][:digit:] .,;/-]"
+prueba <- grepl(expresion_regular,tabla_muestra$RAZON_SOCIAL)
+tabla_muestra_coincidencias <- tabla_muestra[prueba,]
+numero_coincidencias <- sum(prueba)
+tasa_coincidencias <- 100*sum(prueba)/tamanho_muestra
+```
+*Coincidencias encontradas en la muestra:* `r numero_coincidencias` de `r tamanho_muestra`
+
+*Tasa de coincidencias:*  `r tasa_coincidencias`%
+
+### Ejemplo de hallazgos
+```{r}
+library(knitr)
+kable(tabla_muestra_coincidencias[1:20,c("FECHA","RAZON_SOCIAL")])
+```
+
+### Fechas donde se presentan caracteres mal identificados
+```{r}
+sort(unique(tabla_muestra_coincidencias$FECHA))
+```
+### Rango de fechas donde se presentan caracteres mal identificados
+```{r}
+inferior <- min(tabla_muestra_coincidencias$FECHA)
+superior <- max(tabla_muestra_coincidencias$FECHA)
+```
+*Inferior:* `r format(inferior,"%Y-%m-%d")`
+
+*Superior:* `r format(superior,"%Y-%m-%d")`
+    
+## Conclusión
+
+Los errores en la codificación de los caracteres se encuentra a lo largo de todas las tablas procesadas.
+
+## Recomendación
+
+Implementar un método para aplicar a cada tabla y corregir los caracteres mal identificados
