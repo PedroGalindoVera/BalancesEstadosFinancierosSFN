@@ -530,15 +530,14 @@ correcionCaracteresParalelizada <- function(vector_texto) {
   
   requerirPaquetes("parallel","stats","stringr")
   
-  barraProgresoReinicio()
+  #barraProgresoReinicio()
   
   analisis_caracteres <- analisisCaracteresIncorrectos(vector_texto)$caracter
   cat("\n\n\033[1mLista de caracteres a corregir:\033[0m\n")
   print(analisis_caracteres)
   caracter_incorrecto <- c("  ", analisis_caracteres$original)
   caracter_correcto <- c(" ", analisis_caracteres$identificado)
-  correcciones <-
-    stats::setNames(caracter_correcto, caracter_incorrecto)
+  correcciones <- stats::setNames(caracter_correcto, caracter_incorrecto)
   bloques_texto <-
     split(vector_texto, seq_along(vector_texto) %% parallel::detectCores())
   barraProgresoReinicio()
@@ -551,6 +550,26 @@ correcionCaracteresParalelizada <- function(vector_texto) {
         stringr::str_replace_all(bloque, correcciones)
       })
   texto_corregido <- unlist(texto_corregido_parelizado)
+  attr(texto_corregido, "names") <- NULL
+  return(texto_corregido)
+} # CON ERRORES
+
+correcionCaracteresVectorizada<- function(vector_texto) {
+  
+  # En pruebas con system.time, correcionCaracteresVectorizada mostró ser algo
+  # mas rápida que correcionCaracteresParalelizada, sin el problema de de mover
+  # los valores de la columna CUENTA
+  
+  requerirPaquetes("parallel","stats","stringr")
+  
+  analisis_caracteres <- analisisCaracteresIncorrectos(vector_texto)$caracter
+  cat("\n\n\033[1mLista de caracteres a corregir:\033[0m\n")
+  print(analisis_caracteres)
+  caracter_incorrecto <- c("  ", analisis_caracteres$original)
+  caracter_correcto <- c(" ", analisis_caracteres$identificado)
+  correcciones <- stats::setNames(caracter_correcto, caracter_incorrecto)
+  cat("\n\033[1;32mCorreción de caracteres vectorizada...\033[0m\n")
+  texto_corregido <- stringr::str_replace_all(vector_texto, correcciones)
   return(texto_corregido)
 }
 
@@ -894,17 +913,26 @@ crearEstadosFinancierosSEPS <- function() {
   requerirPaquetes("data.table","dplyr")
   tic_general <- Sys.time()
   
-  gestorDescargasDescompresionSEPS() # Verificado en prueba 2023/06/09
-  tabla_concatenada <- # Verificado en prueba 2023/06/09
-    generarListaTablasSEPS() %>%
+  gestorDescargasDescompresionSEPS() # Verificado en prueba 2023/06/22
+  
+  lista_SEPS <- generarListaTablasSEPS()
+  
+  tabla_concatenada <- # Verificado en prueba 2023/06/22
+    lista_SEPS %>%
     dplyr::bind_rows() %>%
     dplyr::distinct() %>%
+    dplyr::rename(
+      `RAZON_SOCIAL_ORIGINAL` = `RAZON_SOCIAL`,
+      `CUENTA_ORIGINAL` = `CUENTA`) %>% 
     dplyr::mutate(
-      `RAZON_SOCIAL` = correcionCaracteresParalelizada(`RAZON_SOCIAL`),
-      `CUENTA` = correcionCaracteresParalelizada(`CUENTA`))
-  attr(tabla_concatenada$RAZON_SOCIAL, "names") <- NULL
-  attr(tabla_concatenada$CUENTA, "names") <- NULL
+      `RAZON_SOCIAL_CORREGIDA` = correcionCaracteresVectorizada(`RAZON_SOCIAL_ORIGINAL`),
+      `CUENTA_CORREGIDA` = correcionCaracteresVectorizada(`CUENTA_ORIGINAL`)) %>%
+    dplyr::mutate(
+      `CORREGIDA` = (`RAZON_SOCIAL_ORIGINAL` != `RAZON_SOCIAL_CORREGIDA`) | 
+        (`CUENTA_ORIGINAL` != `CUENTA_CORREGIDA`))
+  
   exportarResultadosCSV(tabla_concatenada,"SEPS Estados Financieros")
+  
   cat("\n\n  \033[1;34mDuración total del proceso \"Estados Financieros SEPS\":",
       formatoTiempoHMS(difftime(Sys.time(), tic_general, units = "secs")), "\033[0m\n")
   

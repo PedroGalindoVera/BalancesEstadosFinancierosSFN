@@ -19,7 +19,6 @@ resumen <-
     ARCHIVO = names(lista_SEPS),
     CODIGOS = sapply(lista_SEPS, function(df) length(unique(df))))
 
-
 catalogo <-
   lista_SEPS[[k]] %>%
   group_by(CODIGO) %>%
@@ -44,7 +43,6 @@ catalogo_cod_cue <-
   summarise(CUENTA = list(unique(CUENTA)),
             NUM_CUENTAS = n())  
 
-
 catalogo <-
   SEPS[1:10000,] %>%
   group_by(CODIGO) %>%
@@ -64,3 +62,30 @@ catalogo <-
   group_by(CUENTA) %>%
   summarise(CODIGO = list(unique(CODIGO)),
             NUM_CUENTAS = n())
+
+# ----
+catalogo_fecha <-
+  lista_SEPS[[k]] %>%
+  group_by(CODIGO) %>%
+  summarise(CUENTA = unique(CUENTA)) %>%
+  select(CUENTA,CODIGO)
+
+catalogo_fecha <-
+  lista_SEPS[[k]] %>%
+  group_by(CODIGO) %>%
+  reframe(CUENTA = unique(CUENTA), FECHA = unique(FECHA)) %>%
+  select(CUENTA, CODIGO, FECHA)
+
+catalogo_fecha <-
+  lista_SEPS[c(1,2)] %>%
+  bind_rows() %>%
+  group_by(CODIGO) %>%
+  reframe(CUENTA = unique(CUENTA), FECHA = unique(FECHA)) %>%
+  select(CUENTA, CODIGO, FECHA)
+
+catalogo_fecha <-
+  lista_SEPS %>%
+  bind_rows() %>%
+  group_by(CODIGO) %>%
+  reframe(CUENTA = unique(CUENTA))
+
