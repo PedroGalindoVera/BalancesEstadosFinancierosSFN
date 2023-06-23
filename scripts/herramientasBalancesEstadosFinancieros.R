@@ -347,11 +347,31 @@ depurarDirectorioPorAnio <- function(directorio_principal) {
   }
 }
 
+eliminarTildes <- function(vector_texto) {
+  requerirPaquetes("stringr")
+  cambios <- c("á" = "a", "é" = "e", "í" = "i", "ó" = "o", "ú" = "u",
+               "Á" = "A", "É" = "E", "Í" = "I", "Ó" = "O", "Ú" = "U")
+  texto_corregido <- stringr::str_replace_all(vector_texto, cambios)
+  return(texto_corregido)
+}
+
+remplazarConTildes <- function(vector_texto) {
+  requerirPaquetes("stringr")
+  cambios <- c("a" = "á", "e" = "é", "i" = "í", "o" = "ó", "u" = "ú",
+               "A" = "Á", "E" = "É", "I" = "Í", "O" = "Ó", "U" = "Ú")
+  texto_corregido <- stringr::str_replace_all(vector_texto, cambios)
+  return(texto_corregido)
+}
+
 analisisCaracteresIncorrectos <- function(vector_texto, certidumbre = NULL) {
   
   # Permite identificar en un vector de texto los caracteres ajenos a la
   # escritura en español, y retornar una tabla de los reconocimientos más
   # plausibles.
+  
+  # Por pruebas individuales sobre las bases de datos para cada año, se sugiere
+  # que esta función se aplique preferentemente sobre la totalidad de años
+  # con el fin de encontrar mejores similitudes, y evitar malas asignaciones.
   
   requerirPaquetes("stats","stringdist")
   
@@ -363,20 +383,14 @@ analisisCaracteresIncorrectos <- function(vector_texto, certidumbre = NULL) {
     return(vector_palabras)
   }
   palabrasCorrectas <- function(vector_texto) {
-    ##expresion_regular <- "^[a-zñáéíóúüA-ZÑÁÉÍÓÚÜ0-9]+$"
-    ##expresion_regular <- "^[a-zñáéíóúüA-ZÑÁÉÍÓÚÜ0-9\\(\\)-]+$"
-    #expresion_regular <- "^[a-zñáéíóúüA-ZÑÁÉÍÓÚÜ0-9\\(\\)\"-]+$"
-    #separadores <- "[ .;/-]"
-    expresion_regular <- "^[a-zñáéíóúüA-ZÑÁÉÍÓÚÜ0-9]+$"
+    expresion_regular <- "^[a-záéíóúüñA-ZÁÉÍÓÚÜÑ0-9]+$"
     separadores <- "[ .,;/\\(\\)\"–-]"
     vectorTexto2palabras(vector_texto, separadores, expresion_regular)
   }
   palabrasIncorrectas <- function(vector_texto, patron_incorrecto = NULL) {
     expresion_regular <-
       if ( is.null(patron_incorrecto) ) {
-        ##"[^a-zñáéíóúüA-ZÑÁÉÍÓÚÜ0-9 .,;/\\(\\)-]"
-        #"[^a-zñáéíóúüA-ZÑÁÉÍÓÚÜ0-9 .,;/\\(\\)\"–-]" # "–" es diferente de "-"
-        "[^a-zñáéíóúüA-ZÑÁÉÍÓÚÜ0-9]"
+        "[^a-záéíóúüñA-ZÁÉÍÓÚÜÑ0-9]"
       } else {
         patron_incorrecto
       }
@@ -385,7 +399,7 @@ analisisCaracteresIncorrectos <- function(vector_texto, certidumbre = NULL) {
     vectorTexto2palabras(vector_texto, separadores, expresion_regular)
   }
   caracteresIncorrectos <- function(vector_texto, certidumbre = NULL) {
-    expresion_regular <- "[^a-zñáéíóúüA-ZÑÁÉÍÓÚÜ0-9 .,;/\\(\\)\"–-]+"
+    expresion_regular <- "[^a-záéíóúüñA-ZÁÉÍÓÚÜÑ0-9 .,;/\\(\\)\"–-]+"
     vector_texto_unico <- sort(unique(vector_texto))
     if ( length(vector_texto_unico) > 100000  ) {
       if ( is.null(certidumbre) ) certidumbre = 0.05
@@ -413,9 +427,6 @@ analisisCaracteresIncorrectos <- function(vector_texto, certidumbre = NULL) {
     caracteres_cadena1 <- unlist(strsplit(cadena_incorrecta, ""))
     caracteres_cadena2 <- unlist(strsplit(cadena_correcta, ""))
     caracteres_comunes <- intersect(caracteres_cadena1,caracteres_cadena2)
-    # caracteres_conjuntos <- union(caracteres_cadena1,caracteres_cadena2)
-    # caracteres_diferentes <- setdiff(caracteres_conjuntos,caracteres_comunes) #
-    # tail(caracteres_diferentes,1)
     caracteres_diferentes1 <- setdiff(caracteres_cadena1,caracteres_cadena2)
     caracteres_diferentes2 <- setdiff(caracteres_cadena2,caracteres_cadena1)
     frecuencia_caracteres_cadena1 <- table(caracteres_cadena1)
@@ -454,13 +465,13 @@ analisisCaracteresIncorrectos <- function(vector_texto, certidumbre = NULL) {
   }
   textoConCaracteresCorrectos <- function(vector_texto) {
     texto_unico <- sort(unique(vector_texto))
-    expresion_regular <- "^[a-zñáéíóúüA-ZÑÁÉÍÓÚÜ0-9 .,;/\\(\\)\"–-]+$"
+    expresion_regular <- "^[a-záéíóúüñA-ZÁÉÍÓÚÜÑ0-9 .,;/\\(\\)\"–-]+$"
     texto_correcto <- grep(expresion_regular, texto_unico, value = TRUE)
     return(texto_correcto)
   }
   textoConCaracteresIncorrectos <- function(vector_texto) {
     texto_unico <- sort(unique(vector_texto))
-    expresion_regular <- "[^a-zñáéíóúüA-ZÑÁÉÍÓÚÜ0-9 .,;/\\(\\)\"–-]"
+    expresion_regular <- "[^a-záéíóúüñA-ZÁÉÍÓÚÜÑ0-9 .,;/\\(\\)\"–-]"
     texto_incorrecto <- grep(expresion_regular, texto_unico, value = TRUE)
     return(texto_incorrecto)
   }
@@ -554,7 +565,7 @@ correcionCaracteresParalelizada <- function(vector_texto) {
   return(texto_corregido)
 } # CON ERRORES
 
-correcionCaracteresVectorizada<- function(vector_texto) {
+correcionCaracteresVectorizada <- function(vector_texto) {
   
   # En pruebas con system.time, correcionCaracteresVectorizada mostró ser algo
   # mas rápida que correcionCaracteresParalelizada, sin el problema de de mover
@@ -563,6 +574,8 @@ correcionCaracteresVectorizada<- function(vector_texto) {
   requerirPaquetes("parallel","stats","stringr")
   
   analisis_caracteres <- analisisCaracteresIncorrectos(vector_texto)$caracter
+  # analisis_caracteres$identificado <-
+  #   remplazarConTildes(analisis_caracteres$identificado)
   cat("\n\n\033[1mLista de caracteres a corregir:\033[0m\n")
   print(analisis_caracteres)
   caracter_incorrecto <- c("  ", analisis_caracteres$original)
@@ -903,6 +916,10 @@ generarListaTablasSEPS <- function() {
         `CODIGO` = as.integer(`CODIGO`),
         `VALOR` = as.numeric(gsub(",", ".", `VALOR`)),
         `SEGMENTO` = ifelse(`SEGMENTO` == "SEGMENTO 1 MUTUALISTA","MUTUALISTA", `SEGMENTO`)
+      ) %>%
+      # NO SE ENCONTRÓ
+      dplyr::mutate(
+        `RAZON_SOCIAL` = chartr("ÁÉÍÓÚáéíóú", "AEIOUaeiou", `RAZON_SOCIAL`)
       )
   }
   return(lista_tablas_SEPS)
@@ -928,7 +945,8 @@ crearEstadosFinancierosSEPS <- function() {
       `RAZON_SOCIAL_CORREGIDA` = correcionCaracteresVectorizada(`RAZON_SOCIAL_ORIGINAL`),
       `CUENTA_CORREGIDA` = correcionCaracteresVectorizada(`CUENTA_ORIGINAL`)) %>%
     dplyr::mutate(
-      `CORREGIDA` = (`RAZON_SOCIAL_ORIGINAL` != `RAZON_SOCIAL_CORREGIDA`) | 
+      `CORRECCION` =
+        (`RAZON_SOCIAL_ORIGINAL` != `RAZON_SOCIAL_CORREGIDA`) | 
         (`CUENTA_ORIGINAL` != `CUENTA_CORREGIDA`))
   
   exportarResultadosCSV(tabla_concatenada,"SEPS Estados Financieros")

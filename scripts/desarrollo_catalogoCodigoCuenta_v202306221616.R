@@ -68,5 +68,8 @@ vector_texto <-
     COINCIDENCIA = CUENTA == CORREGIDA
   )
 
-
+catalogo <-
+  tabla_concatenada %>%
+  group_by(CODIGO) %>%
+  reframe(CUENTA_CORREGIDA = unique(CUENTA_CORREGIDA))
 
