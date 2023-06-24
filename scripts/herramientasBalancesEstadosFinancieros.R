@@ -347,6 +347,87 @@ depurarDirectorioPorAnio <- function(directorio_principal) {
   }
 }
 
+analisisSimilitudCadenaCaracteres <- function(texto_vector, metodo = "lv",
+    tokenizar = FALSE, min = NA, max = NA) {
+  requerirPaquetes("stringdist")
+  if ( isTRUE(tokenizar) ) {texto_vector <- unlist(strsplit(texto_vector, " "))}
+  cadena_caracteres <- sort(unique(texto_vector))
+  similitud <-
+    stringdist::stringsimmatrix(cadena_caracteres, cadena_caracteres, metodo)
+  rownames(similitud) <- cadena_caracteres
+  colnames(similitud) <- cadena_caracteres
+  similitud_unica <- unique(sort(similitud, decreasing = TRUE))
+  min <- ifelse(is.na(min), min(similitud_unica), min)
+  max <- ifelse(is.na(max), 1, max)
+  similitud_seleccion <-
+    similitud_unica[similitud_unica >= min & similitud_unica <= max]
+  similar <- data.frame()
+  barraProgresoReinicio()
+  for ( similitud_iteracion in similitud_seleccion ) {
+    indice <-
+      as.data.frame(which(similitud == similitud_iteracion, arr.ind = TRUE))
+    similar_iteracion <-
+      data.frame(
+        original = rownames(similitud)[indice$row],
+        similar = colnames(similitud)[indice$col],
+        similitud = similitud_iteracion
+      )
+    similar <- rbind(similar, similar_iteracion)
+    barraProgreso(similitud_seleccion)
+  }
+  filas_duplicadas <-
+    duplicated(t(apply(similar[, c("original", "similar")], 1, sort)))
+  similar <- similar[!filas_duplicadas, ]
+  return(similar)
+}
+
+caracteresUnicosCadena <- function(texto_vector){
+  if ( !is.character(texto_vector) ){texto_vector <- as.character(texto_vector)}
+  texto_vector_unico <- unique(texto_vector)
+  caracteres_unicos <- paste(texto_vector_unico, collapse = " ") %>%
+    str_split(.,"") %>% unlist() %>% unique() %>% sort()
+  return(caracteres_unicos)
+}
+
+estandarizarCadenaCaracteres <- function(texto_vector, ver_control_cambios = FALSE) {
+  requerirPaquetes("dplyr")
+  tabla_control_cambios <- function(texto_vector_unico){
+    texto_modificado_unico <-
+      estandarizarCadenaCaracteres(texto_vector_unico)
+    control_cambios <-
+      data.frame(
+        original = texto_vector_unico,
+        modificado = texto_modificado_unico) %>%
+      dplyr::mutate(
+        cambios = original != modificado,
+        "ÁÉÍÓÚáéíóú" = grepl("[ÁÉÍÓÚáéíóú]", original),
+        #separadores = grepl("[\"\\./,;–-]", original),
+        " ." = grepl("\\.", original),
+        #"," = grepl(",", original),
+        #";" = grepl(";", original),
+        "–" = grepl("–", original),
+        #"-" = grepl("-", original),
+        #"\"" = grepl("\"", original),
+        #"/" = grepl("/", original),
+        "mas_de_1_espacio" = grepl(" {2,}", original),
+        "espacio_inicial" = grepl("^\\s+", original),
+        "espacio_final" = grepl("\\s+$", original)
+      )
+    return(control_cambios)
+  }
+  if ( !is.character(texto_vector) ){texto_vector <- as.character(texto_vector)}
+  if ( isTRUE(ver_control_cambios) ) {
+    return(tabla_control_cambios(texto_vector))
+  }
+  texto_modificado <-
+    texto_vector %>%
+    chartr("[ÁÉÍÓÚ.]", "[AEIOU ]", .) %>% #Remplaza tildes
+    gsub(" {2,}", " ", .) %>% #Elimina espaciados múltiples
+    gsub("^\\s+", "", .) %>% #Elimina espaciados al inicio de la cadena
+    gsub("\\s+$", "", .) #Elimina espaciados al final de la cadena
+  return(texto_modificado)
+}
+
 eliminarTildes <- function(vector_texto) {
   requerirPaquetes("stringr")
   cambios <- c("á" = "a", "é" = "e", "í" = "i", "ó" = "o", "ú" = "u",
@@ -889,7 +970,8 @@ modificarNombreColumnaSEPS <- function(tabla, nombre_nuevo, ...) {
 generarListaTablasSEPS <- function() {
   requerirPaquetes("dplyr","readr")
   directorio_principal <- "data/Fuente/SEPS/Bases de Datos"
-  archivos <- list.files(path = directorio_principal, full.names = TRUE, recursive = TRUE)
+  archivos <-
+    list.files(path = directorio_principal, full.names = TRUE, recursive = TRUE)
   lista_tablas_SEPS <- list()
   for ( archivo in archivos ) {
     barraProgreso(archivos)
@@ -983,8 +1065,6 @@ exportarEstadosFinancierosSEPSmensualSIEVA <- function(data_frame) {
   ruta_archivo <- file.path(ruta_dir_compartida, nombre_archivo)
   openxlsx::write.xlsx(SEPS_SIEVA_mensual, ruta_archivo)
 }
-
-# CUNCLUIDO----
 
 verificarInstalacion <- function(ruta_intalacion) {
   
