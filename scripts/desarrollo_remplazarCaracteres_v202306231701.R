@@ -41,4 +41,6 @@ A <- data.frame("original" = texto_vector,
 A$logico <- A$`original` == A$`sin_tildes`
 
 
+RAZON_SOCIAL_unico <- SEPS %>% pull(RAZON_SOCIAL) %>% unique()
+grep(expresion_regular, RAZON_SOCIAL_unico, value = TRUE)
 
