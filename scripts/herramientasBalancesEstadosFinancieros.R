@@ -196,11 +196,45 @@ barraProgreso <- function(conjunto) {
   }
 }
 
+barraProgreso2 <- function(conjunto) {
+  salir <- function(contador_progreso, numero_elementos) {
+    if ( contador_progreso >= numero_elementos )
+      barraProgresoReinicio()
+  }
+  if ( !exists("contador_progreso") ) {
+    numero_elementos <<- length(conjunto)
+    barra_progreso <<-
+      txtProgressBar(min = 0, max = numero_elementos, style = 3)
+    marcador_inicio_cronometro <<- Sys.time()
+    contador_progreso <<- 1
+  } else {
+    contador_progreso <<- contador_progreso + 1
+  }
+  marcador_progreso_cronometro <- Sys.time()
+  tiempo_transcurrido <-
+    difftime(
+      marcador_progreso_cronometro, marcador_inicio_cronometro, units = "sec")
+  estimador_tiempo_proceso <-
+    numero_elementos*(tiempo_transcurrido/(contador_progreso))
+  tiempo_estimado_fin <- estimador_tiempo_proceso - tiempo_transcurrido
+  cat("\033[34m\t\t\tTiempo transcurrido:\033[0m",
+      "\033[1;34m", formatoTiempoHMS(tiempo_transcurrido),"\033[0m", " de ",
+      "\033[1;34m", formatoTiempoHMS(estimador_tiempo_proceso),"\033[0m")
+  setTxtProgressBar(barra_progreso, contador_progreso)
+  salir(contador_progreso, numero_elementos)
+}
+
 barraProgresoReinicio <- function() {
-  if (exists("contador_progreso"))
-    rm(contador_progreso, envir = .GlobalEnv)
+  if (exists("numero_elementos"))
+    rm(numero_elementos, envir = .GlobalEnv)
+  if (exists("barra_progreso")) {
+    close(barra_progreso)
+    rm(barra_progreso, envir = .GlobalEnv)
+  }
   if (exists("marcador_inicio_cronometro"))
     rm(marcador_inicio_cronometro, envir = .GlobalEnv)
+  if (exists("contador_progreso"))
+    rm(contador_progreso, envir = .GlobalEnv)
 }
 
 descomprimirArchivosDirectorioZip <- function(origen, destino) {
@@ -347,23 +381,162 @@ depurarDirectorioPorAnio <- function(directorio_principal) {
   }
 }
 
-eliminarTildes <- function(vector_texto) {
+analisisSimilitudCadenaCaracteres <- function(texto_vector, metodo = "lv",
+    tokenizar = FALSE, min = NA, max = NA) {
+  requerirPaquetes("stringdist")
+  if ( isTRUE(tokenizar) ) {texto_vector <- unlist(strsplit(texto_vector, " "))}
+  cadena_caracteres <- sort(unique(texto_vector))
+  similitud <-
+    stringdist::stringsimmatrix(cadena_caracteres, cadena_caracteres, metodo)
+  rownames(similitud) <- cadena_caracteres
+  colnames(similitud) <- cadena_caracteres
+  similitud_unica <- unique(sort(similitud, decreasing = TRUE))
+  min <- ifelse(is.na(min), min(similitud_unica), min)
+  max <- ifelse(is.na(max), 1, max)
+  similitud_seleccion <-
+    similitud_unica[similitud_unica >= min & similitud_unica <= max]
+  similar <- data.frame()
+  barraProgresoReinicio()
+  for ( similitud_iteracion in similitud_seleccion ) {
+    indice <-
+      as.data.frame(which(similitud == similitud_iteracion, arr.ind = TRUE))
+    similar_iteracion <-
+      data.frame(
+        original = rownames(similitud)[indice$row],
+        similar = colnames(similitud)[indice$col],
+        similitud = similitud_iteracion
+      )
+    similar <- rbind(similar, similar_iteracion)
+    barraProgreso(similitud_seleccion)
+  }
+  filas_duplicadas <-
+    duplicated(t(apply(similar[, c("original", "similar")], 1, sort)))
+  similar <- similar[!filas_duplicadas, ]
+  return(similar)
+}
+
+caracteresUnicosCadena <- function(texto_vector){
+  if ( !is.character(texto_vector) ){texto_vector <- as.character(texto_vector)}
+  texto_vector_unico <- unique(texto_vector)
+  caracteres_unicos <- paste(texto_vector_unico, collapse = " ") %>%
+    str_split(.,"") %>% unlist() %>% unique() %>% sort()
+  return(caracteres_unicos)
+}
+
+estandarizarCadenaCaracteres <- function(texto_vector, ver_control_cambios = FALSE) {
+  requerirPaquetes("dplyr")
+  tabla_control_cambios <- function(texto_vector){
+    texto_vector_unico <- unique(texto_vector)
+    texto_modificado_unico <-
+      estandarizarCadenaCaracteres(texto_vector_unico)
+    control_cambios <-
+      data.frame(
+        original = texto_vector_unico,
+        modificado = texto_modificado_unico) %>%
+      dplyr::mutate(
+        cambios = original != modificado,
+        "ÁÉÍÓÚáéíóú" = grepl("[ÁÉÍÓÚáéíóú]", original),
+        #separadores = grepl("[\"\\./,;–-]", original),
+        " ." = grepl("\\.", original),
+        #"," = grepl(",", original),
+        #";" = grepl(";", original),
+        "–" = grepl("–", original),
+        #"-" = grepl("-", original),
+        #"\"" = grepl("\"", original),
+        #"/" = grepl("/", original),
+        "mas_de_1_espacio" = grepl(" {2,}", original),
+        "espacio_inicial" = grepl("^\\s+", original),
+        "espacio_final" = grepl("\\s+$", original)
+      )
+    return(control_cambios)
+  }
+  if ( !is.character(texto_vector) ){texto_vector <- as.character(texto_vector)}
+  if ( isTRUE(ver_control_cambios) ) {
+    return(tabla_control_cambios(texto_vector))
+  }
+  cat("\n\033[1;32mEstandarizando caracteres comunes...\033[0m\n")
+  texto_modificado <-
+    texto_vector %>%
+    chartr("[ÁÉÍÓÚ.]", "[AEIOU ]", .) %>% #Remplaza tildes
+    gsub(" {2,}", " ", .) %>% #Elimina espaciados múltiples
+    gsub("^\\s+", "", .) %>% #Elimina espaciados al inicio de la cadena
+    gsub("\\s+$", "", .) #Elimina espaciados al final de la cadena
+  return(texto_modificado)
+}
+
+estandarizarCadenaCaracteresSeparada <- function(texto_vector, ver_control_cambios = FALSE) {
+  requerirPaquetes("dplyr","stringdist")
+  
+  tabla_control_cambios <- function(texto_vector){
+    texto_vector_unico <- unique(texto_vector)
+    texto_modificado_unico <-
+      estandarizarCadenaCaracteresSeparada(texto_vector_unico)
+    control_cambios <-
+      data.frame(
+        original = texto_vector_unico,
+        modificado = texto_modificado_unico) %>%
+      dplyr::mutate(
+        similitud = stringdist::stringsim(original,modificado),
+        cambios = original != modificado,
+        "ÁÉÍÓÚáéíóú" = grepl("[ÁÉÍÓÚáéíóú]", original),
+        #separadores = grepl("[\"\\./,;–-]", original),
+        " ." = grepl("\\.", original),
+        #"," = grepl(",", original),
+        #";" = grepl(";", original),
+        "–" = grepl("–", original),
+        #"-" = grepl("-", original),
+        #"\"" = grepl("\"", original),
+        #"/" = grepl("/", original),
+        "mas_de_1_espacio" = grepl(" {2,}", original),
+        "espacio_inicial" = grepl("^\\s+", original),
+        "espacio_final" = grepl("\\s+$", original)
+      )
+    return(control_cambios)
+  }
+  estandarizar <- function(texto_vector) {
+    texto_modificado <-
+      texto_vector %>%
+      chartr("[ÁÉÍÓÚ.]", "[AEIOU ]", .) %>% #Remplaza tildes
+      gsub(" {2,}", " ", .) %>% #Elimina espaciados múltiples
+      gsub("^\\s+", "", .) %>% #Elimina espaciados al inicio de la cadena
+      gsub("\\s+$", "", .) #Elimina espaciados al final de la cadena
+    return(texto_modificado)
+  }
+  
+  if ( !is.character(texto_vector) ){texto_vector <- as.character(texto_vector)}
+  if ( isTRUE(ver_control_cambios) ) {
+    return(tabla_control_cambios(texto_vector))
+  }
+  cat("\n\033[1;32mEstandarizando caracteres comunes...\033[0m\n")
+  
+  indices <- seq_along(texto_vector)
+  partes <- split(indices, cut(indices, breaks = 100, labels = FALSE))
+  texto_modificado <- character()
+  barraProgresoReinicio()
+  for (parte in partes) {
+    texto_modificado[parte] <- estandarizar(texto_vector[parte])
+    barraProgreso2(partes)
+  }
+  return(texto_modificado)
+}
+
+eliminarTildes <- function(texto_vector) {
   requerirPaquetes("stringr")
   cambios <- c("á" = "a", "é" = "e", "í" = "i", "ó" = "o", "ú" = "u",
                "Á" = "A", "É" = "E", "Í" = "I", "Ó" = "O", "Ú" = "U")
-  texto_corregido <- stringr::str_replace_all(vector_texto, cambios)
+  texto_corregido <- stringr::str_replace_all(texto_vector, cambios)
   return(texto_corregido)
 }
 
-remplazarConTildes <- function(vector_texto) {
+remplazarConTildes <- function(texto_vector) {
   requerirPaquetes("stringr")
   cambios <- c("a" = "á", "e" = "é", "i" = "í", "o" = "ó", "u" = "ú",
                "A" = "Á", "E" = "É", "I" = "Í", "O" = "Ó", "U" = "Ú")
-  texto_corregido <- stringr::str_replace_all(vector_texto, cambios)
+  texto_corregido <- stringr::str_replace_all(texto_vector, cambios)
   return(texto_corregido)
 }
 
-analisisCaracteresIncorrectos <- function(vector_texto, certidumbre = NULL) {
+analisisCaracteresIncorrectos <- function(texto_vector, certidumbre = NULL) {
   
   # Permite identificar en un vector de texto los caracteres ajenos a la
   # escritura en español, y retornar una tabla de los reconocimientos más
@@ -375,19 +548,19 @@ analisisCaracteresIncorrectos <- function(vector_texto, certidumbre = NULL) {
   
   requerirPaquetes("stats","stringdist")
   
-  vectorTexto2palabras <- function(vector_texto, separadores, expresion_regular) {
-    texto_unico <- unique(vector_texto)
+  vectorTexto2palabras <- function(texto_vector, separadores, expresion_regular) {
+    texto_unico <- unique(texto_vector)
     texto_separado <- unlist(strsplit(texto_unico, separadores))
     palabras <- sort(unique(texto_separado))
     vector_palabras <- grep(expresion_regular, palabras, value = TRUE)
     return(vector_palabras)
   }
-  palabrasCorrectas <- function(vector_texto) {
+  palabrasCorrectas <- function(texto_vector) {
     expresion_regular <- "^[a-záéíóúüñA-ZÁÉÍÓÚÜÑ0-9]+$"
     separadores <- "[ .,;/\\(\\)\"–-]"
-    vectorTexto2palabras(vector_texto, separadores, expresion_regular)
+    vectorTexto2palabras(texto_vector, separadores, expresion_regular)
   }
-  palabrasIncorrectas <- function(vector_texto, patron_incorrecto = NULL) {
+  palabrasIncorrectas <- function(texto_vector, patron_incorrecto = NULL) {
     expresion_regular <-
       if ( is.null(patron_incorrecto) ) {
         "[^a-záéíóúüñA-ZÁÉÍÓÚÜÑ0-9]"
@@ -396,20 +569,20 @@ analisisCaracteresIncorrectos <- function(vector_texto, certidumbre = NULL) {
       }
     #separadores <- "[ .;/-]"
     separadores <- "[ .,;/\\(\\)\"–-]"
-    vectorTexto2palabras(vector_texto, separadores, expresion_regular)
+    vectorTexto2palabras(texto_vector, separadores, expresion_regular)
   }
-  caracteresIncorrectos <- function(vector_texto, certidumbre = NULL) {
+  caracteresIncorrectos <- function(texto_vector, certidumbre = NULL) {
     expresion_regular <- "[^a-záéíóúüñA-ZÁÉÍÓÚÜÑ0-9 .,;/\\(\\)\"–-]+"
-    vector_texto_unico <- sort(unique(vector_texto))
-    if ( length(vector_texto_unico) > 100000  ) {
+    texto_vector_unico <- sort(unique(texto_vector))
+    if ( length(texto_vector_unico) > 100000  ) {
       if ( is.null(certidumbre) ) certidumbre = 0.05
-      tamanio_total <- length(vector_texto_unico)
+      tamanio_total <- length(texto_vector_unico)
       tamanio_muestra <-
         max(min(10000, tamanio_total), ceiling(certidumbre*tamanio_total))
-      vector_muestra <- sample(vector_texto_unico, tamanio_muestra)
+      vector_muestra <- sample(texto_vector_unico, tamanio_muestra)
       vector_proceso <- vector_muestra
     } else {
-      vector_proceso <- vector_texto_unico
+      vector_proceso <- texto_vector_unico
     }
     ocurrencias <- gregexpr(expresion_regular, vector_proceso)
     extraccion <- regmatches(vector_proceso, ocurrencias)
@@ -463,14 +636,14 @@ analisisCaracteresIncorrectos <- function(vector_texto, certidumbre = NULL) {
     return(list(incorrecto = caracter_incorrecto, correcto = caracter_correcto))
     
   }
-  textoConCaracteresCorrectos <- function(vector_texto) {
-    texto_unico <- sort(unique(vector_texto))
+  textoConCaracteresCorrectos <- function(texto_vector) {
+    texto_unico <- sort(unique(texto_vector))
     expresion_regular <- "^[a-záéíóúüñA-ZÁÉÍÓÚÜÑ0-9 .,;/\\(\\)\"–-]+$"
     texto_correcto <- grep(expresion_regular, texto_unico, value = TRUE)
     return(texto_correcto)
   }
-  textoConCaracteresIncorrectos <- function(vector_texto) {
-    texto_unico <- sort(unique(vector_texto))
+  textoConCaracteresIncorrectos <- function(texto_vector) {
+    texto_unico <- sort(unique(texto_vector))
     expresion_regular <- "[^a-záéíóúüñA-ZÁÉÍÓÚÜÑ0-9 .,;/\\(\\)\"–-]"
     texto_incorrecto <- grep(expresion_regular, texto_unico, value = TRUE)
     return(texto_incorrecto)
@@ -479,7 +652,7 @@ analisisCaracteresIncorrectos <- function(vector_texto, certidumbre = NULL) {
   cat("\n\n\033[1;32mAnalizando caracteres extraños...\033[0m\n")
   barraProgresoReinicio()
   
-  fraces_unicas <- sort(unique(vector_texto))
+  fraces_unicas <- sort(unique(texto_vector))
   palabras_correctas <- palabrasCorrectas(fraces_unicas)
   caracteres_incorrectos <- caracteresIncorrectos(fraces_unicas, certidumbre)
   caracter <- data.frame()
@@ -530,6 +703,7 @@ analisisCaracteresIncorrectos <- function(vector_texto, certidumbre = NULL) {
       paste0("\"",caracter_incorrecto,"\" ~ \"",caracter_identificado,"\"")
     lista_palabras[[nombre_abributo]] <- palabra
     lista_distancias[[nombre_abributo]] <- distancia
+    barraProgreso2(seq_along(caracteres_incorrectos))
   }
   return(
     list(caracter = data.frame(stats::na.omit(caracter), row.names = NULL),
@@ -537,20 +711,20 @@ analisisCaracteresIncorrectos <- function(vector_texto, certidumbre = NULL) {
          lista_distancias = lista_distancias))
 }
 
-correcionCaracteresParalelizada <- function(vector_texto) {
+correcionCaracteresParalelizada <- function(texto_vector) {
   
   requerirPaquetes("parallel","stats","stringr")
   
   #barraProgresoReinicio()
   
-  analisis_caracteres <- analisisCaracteresIncorrectos(vector_texto)$caracter
+  analisis_caracteres <- analisisCaracteresIncorrectos(texto_vector)$caracter
   cat("\n\n\033[1mLista de caracteres a corregir:\033[0m\n")
   print(analisis_caracteres)
   caracter_incorrecto <- c("  ", analisis_caracteres$original)
   caracter_correcto <- c(" ", analisis_caracteres$identificado)
   correcciones <- stats::setNames(caracter_correcto, caracter_incorrecto)
   bloques_texto <-
-    split(vector_texto, seq_along(vector_texto) %% parallel::detectCores())
+    split(texto_vector, seq_along(texto_vector) %% parallel::detectCores())
   barraProgresoReinicio()
   texto_corregido_parelizado <-
     parallel::mclapply(
@@ -565,7 +739,7 @@ correcionCaracteresParalelizada <- function(vector_texto) {
   return(texto_corregido)
 } # CON ERRORES
 
-correcionCaracteresVectorizada <- function(vector_texto) {
+correcionCaracteresVectorizada <- function(texto_vector) {
   
   # En pruebas con system.time, correcionCaracteresVectorizada mostró ser algo
   # mas rápida que correcionCaracteresParalelizada, sin el problema de de mover
@@ -573,18 +747,51 @@ correcionCaracteresVectorizada <- function(vector_texto) {
   
   requerirPaquetes("parallel","stats","stringr")
   
-  analisis_caracteres <- analisisCaracteresIncorrectos(vector_texto)$caracter
-  # analisis_caracteres$identificado <-
-  #   remplazarConTildes(analisis_caracteres$identificado)
-  cat("\n\n\033[1mLista de caracteres a corregir:\033[0m\n")
-  print(analisis_caracteres)
-  caracter_incorrecto <- c("  ", analisis_caracteres$original)
-  caracter_correcto <- c(" ", analisis_caracteres$identificado)
-  correcciones <- stats::setNames(caracter_correcto, caracter_incorrecto)
-  cat("\n\033[1;32mCorreción de caracteres vectorizada...\033[0m\n")
-  texto_corregido <- stringr::str_replace_all(vector_texto, correcciones)
-  return(texto_corregido)
+  analisis_caracteres <- analisisCaracteresIncorrectos(texto_vector)$caracter
+  if ( nrow(analisis_caracteres) > 0 ) {
+    # analisis_caracteres$identificado <-
+    #   remplazarConTildes(analisis_caracteres$identificado)
+    cat("\n\n\033[1mLista de caracteres a corregir:\033[0m\n")
+    print(analisis_caracteres)
+    caracter_incorrecto <- c("  ", analisis_caracteres$original)
+    caracter_correcto <- c(" ", analisis_caracteres$identificado)
+    correcciones <- stats::setNames(caracter_correcto, caracter_incorrecto)
+    cat("\n\033[1;32mCorreción de caracteres vectorizada...\033[0m\n")
+    texto_corregido <- stringr::str_replace_all(texto_vector, correcciones)
+    return(texto_corregido)
+  } else {
+    cat("\n\033[1;32mNo se encontró caracteres por corregir.\033[0m\n")
+  }
 }
+
+correcionCaracteresVectorizadaSeparada <- function(texto_vector) {
+  requerirPaquetes("stats", "stringr")
+  
+  analisis_caracteres <- analisisCaracteresIncorrectos(texto_vector)$caracter
+  if (nrow(analisis_caracteres) > 0) {
+    cat("\n\n\033[1mLista de caracteres a corregir:\033[0m\n")
+    print(analisis_caracteres)
+    caracter_incorrecto <- analisis_caracteres$original
+    caracter_correcto <- analisis_caracteres$identificado
+    correcciones <- stats::setNames(caracter_correcto, caracter_incorrecto)
+    cat("\n\033[1;32mCorreción de caracteres vectorizada...\033[0m\n")
+    
+    indices <- seq_along(texto_vector)
+    partes <- split(indices, cut(indices, breaks = 100, labels = FALSE))
+    texto_corregido <- character()
+    barraProgresoReinicio()
+    for (parte in partes) {
+      texto_corregido[parte] <-
+        stringr::str_replace_all(texto_vector[parte], correcciones)
+      #barraProgreso(partes)
+      barraProgreso2(partes)
+    }
+    
+    return(texto_corregido)
+  } else {
+    cat("\n\033[1;32mNo se encontró caracteres por corregir.\033[0m\n")
+  }
+} # EFICIENTE
 
 # Descarga----
 
@@ -889,7 +1096,8 @@ modificarNombreColumnaSEPS <- function(tabla, nombre_nuevo, ...) {
 generarListaTablasSEPS <- function() {
   requerirPaquetes("dplyr","readr")
   directorio_principal <- "data/Fuente/SEPS/Bases de Datos"
-  archivos <- list.files(path = directorio_principal, full.names = TRUE, recursive = TRUE)
+  archivos <-
+    list.files(path = directorio_principal, full.names = TRUE, recursive = TRUE)
   lista_tablas_SEPS <- list()
   for ( archivo in archivos ) {
     barraProgreso(archivos)
@@ -915,12 +1123,12 @@ generarListaTablasSEPS <- function() {
         `CUENTA` = as.character(`CUENTA`),
         `CODIGO` = as.integer(`CODIGO`),
         `VALOR` = as.numeric(gsub(",", ".", `VALOR`)),
-        `SEGMENTO` = ifelse(`SEGMENTO` == "SEGMENTO 1 MUTUALISTA","MUTUALISTA", `SEGMENTO`)
-      ) %>%
-      # NO SE ENCONTRÓ
-      dplyr::mutate(
-        `RAZON_SOCIAL` = chartr("ÁÉÍÓÚáéíóú", "AEIOUaeiou", `RAZON_SOCIAL`)
-      )
+        `SEGMENTO` = ifelse(`SEGMENTO` == "SEGMENTO 1 MUTUALISTA", "MUTUALISTA", `SEGMENTO`)
+      ) # %>%
+      # dplyr::mutate(
+      #   `RAZON_SOCIAL` = estandarizarCadenaCaracteres(`RAZON_SOCIAL`),
+      #   `CUENTA` = estandarizarCadenaCaracteres(`CUENTA`)
+      # )
   }
   return(lista_tablas_SEPS)
 }
@@ -934,20 +1142,29 @@ crearEstadosFinancierosSEPS <- function() {
   
   lista_SEPS <- generarListaTablasSEPS()
   
+  tic <- Sys.time()
   tabla_concatenada <- # Verificado en prueba 2023/06/22
     lista_SEPS %>%
     dplyr::bind_rows() %>%
     dplyr::distinct() %>%
-    dplyr::rename(
-      `RAZON_SOCIAL_ORIGINAL` = `RAZON_SOCIAL`,
-      `CUENTA_ORIGINAL` = `CUENTA`) %>% 
     dplyr::mutate(
-      `RAZON_SOCIAL_CORREGIDA` = correcionCaracteresVectorizada(`RAZON_SOCIAL_ORIGINAL`),
-      `CUENTA_CORREGIDA` = correcionCaracteresVectorizada(`CUENTA_ORIGINAL`)) %>%
+      `RAZON_SOCIAL` = estandarizarCadenaCaracteresSeparada(`RAZON_SOCIAL`),
+      `CUENTA` = estandarizarCadenaCaracteresSeparada(`CUENTA`)
+    ) %>%
     dplyr::mutate(
-      `CORRECCION` =
-        (`RAZON_SOCIAL_ORIGINAL` != `RAZON_SOCIAL_CORREGIDA`) | 
-        (`CUENTA_ORIGINAL` != `CUENTA_CORREGIDA`))
+      `RAZON_SOCIAL` = correcionCaracteresVectorizadaSeparada(`RAZON_SOCIAL`),
+      `CUENTA` = correcionCaracteresVectorizadaSeparada(`CUENTA`))
+  difftime(Sys.time(),tic, units = "auto")
+    # dplyr::rename(
+    #   `RAZON_SOCIAL_ORIGINAL` = `RAZON_SOCIAL`,
+    #   `CUENTA_ORIGINAL` = `CUENTA`) %>% 
+    # dplyr::mutate(
+    #   `RAZON_SOCIAL_CORREGIDA` = correcionCaracteresVectorizada(`RAZON_SOCIAL_ORIGINAL`),
+    #   `CUENTA_CORREGIDA` = correcionCaracteresVectorizada(`CUENTA_ORIGINAL`)) %>%
+    # dplyr::mutate(
+    #   `CORRECCION` =
+    #     (`RAZON_SOCIAL_ORIGINAL` != `RAZON_SOCIAL_CORREGIDA`) | 
+    #     (`CUENTA_ORIGINAL` != `CUENTA_CORREGIDA`))
   
   exportarResultadosCSV(tabla_concatenada,"SEPS Estados Financieros")
   
@@ -983,8 +1200,6 @@ exportarEstadosFinancierosSEPSmensualSIEVA <- function(data_frame) {
   ruta_archivo <- file.path(ruta_dir_compartida, nombre_archivo)
   openxlsx::write.xlsx(SEPS_SIEVA_mensual, ruta_archivo)
 }
-
-# CUNCLUIDO----
 
 verificarInstalacion <- function(ruta_intalacion) {
   
