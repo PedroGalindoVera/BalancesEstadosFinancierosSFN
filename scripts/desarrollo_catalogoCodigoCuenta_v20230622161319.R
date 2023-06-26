@@ -89,3 +89,75 @@ catalogo_fecha <-
   group_by(CODIGO) %>%
   reframe(CUENTA = unique(CUENTA))
 
+# ----
+
+catalogo_CODIGO_CUENTA <-
+  SEPS %>%
+  group_by(CODIGO) %>%
+  reframe(CUENTA = unique(CUENTA)) %>%
+  add_count(CUENTA)
+
+catalogo_CUENTA_CODIGO <-
+  SEPS %>%
+  group_by(CUENTA) %>%
+  reframe(CODIGO = unique(CODIGO)) %>%
+  add_count(CODIGO)
+
+catalogo1 <-
+  # SEPS %>%
+  SEPS_estandar %>%
+  group_by(CODIGO) %>%
+  reframe(CUENTA = unique(CUENTA),
+          `Última Fecha de Uso` = max(FECHA)) %>%
+  add_count(CODIGO) %>%
+  rename(`NUMERO DE CUENTAS POR CODIGO` = n) %>%
+  add_count(CUENTA) %>%
+  rename(`NUMERO DE CODIGOS POR CUENTA` = n)
+
+catalogo2 <-
+  # SEPS %>%
+  SEPS_estandar %>%
+  group_by(CUENTA) %>%
+  reframe(CODIGO = unique(CODIGO),
+          `ÚLTIMA FECHA DE USO` = max(FECHA)) %>%
+  add_count(CODIGO) %>%
+  rename(`NUMERO DE CUENTAS POR CODIGO` = n) %>%
+  add_count(CUENTA) %>%
+  rename(`NUMERO DE CODIGOS POR CUENTA` = n) %>%
+  select("CODIGO", "CUENTA", "ULTIMA FECHA DE USO",
+         "NUMERO DE CUENTAS POR CODIGO", "NUMERO DE CODIGOS POR CUENTA")
+
+catalogoCodigoCuenta <- function(tabla_balance_financiero) {
+  requerirPaquetes("dplyr")
+  catalogo <-
+    tabla_balance_financiero %>%
+    group_by(CUENTA) %>%
+    reframe(CODIGO = unique(CODIGO),
+            SEGMENTO = paste(sort(unique(SEGMENTO)), collapse = ", "),
+            `PRIMERA FECHA DE USO` = min(FECHA),
+            `ULTIMA FECHA DE USO` = max(FECHA)) %>%
+    add_count(CODIGO) %>%
+    rename(`NUMERO DE CUENTAS POR CODIGO` = n) %>%
+    add_count(CUENTA) %>%
+    rename(`NUMERO DE CODIGOS POR CUENTA` = n) #%>%
+  # select("CODIGO", "CUENTA", "ULTIMA FECHA DE USO",
+  #        "NUMERO DE CUENTAS POR CODIGO", "NUMERO DE CODIGOS POR CUENTA")
+  return(catalogo)
+}
+
+catalogo <-
+  SEPS_estandar %>%
+  group_by(CODIGO, CUENTA, SEGMENTO) %>%
+  reframe(`PRIMERA FECHA DE USO` = min(FECHA),
+          `ULTIMA FECHA DE USO` = max(FECHA)) %>%
+  add_count(CODIGO) %>%
+  rename(`NUMERO DE CUENTAS POR CODIGO` = n) %>%
+  add_count(CUENTA) %>%
+  rename(`NUMERO DE CODIGOS POR CUENTA` = n) 
+
+catalogo <-
+  SEPS_estandar %>%
+  distinct(CODIGO, CUENTA, SEGMENTO, FECHA)
+
+
+

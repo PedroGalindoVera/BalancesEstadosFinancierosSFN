@@ -60,12 +60,16 @@ crearDirectorio <- function(nueva_ruta) {
   }
 }
 
-exportarReporteTabla <- function(dataFrame, nombre_archivo) {
+exportarReporteTabla <- function(dataFrame, nombre_archivo, ruta_directorio = NULL) {
   requerirPaquetes("openxlsx")
   crear_libro_trabajo <- openxlsx::createWorkbook()
   openxlsx::addWorksheet(crear_libro_trabajo, "Reporte")
   openxlsx::writeData(crear_libro_trabajo, "Reporte", dataFrame) #, autoWidth = TRUE)
-  directorio_reportes <- "data/Reportes"
+  if ( is.null(ruta_directorio) ) {
+    directorio_reportes <- "data/Reportes"
+  } else {
+    directorio_reportes <- ruta_directorio
+  }
   crearDirectorio(directorio_reportes)
   nombre_archivo <-
     paste(nombre_archivo, "Emitido", format(Sys.time(), "%Y-%m-%d_%HH%M.xlsx"))
@@ -419,7 +423,7 @@ caracteresUnicosCadena <- function(texto_vector){
   if ( !is.character(texto_vector) ){texto_vector <- as.character(texto_vector)}
   texto_vector_unico <- unique(texto_vector)
   caracteres_unicos <- paste(texto_vector_unico, collapse = " ") %>%
-    str_split(.,"") %>% unlist() %>% unique() %>% sort()
+    strsplit(.,"") %>% unlist() %>% unique() %>% sort()
   return(caracteres_unicos)
 }
 
@@ -793,6 +797,34 @@ correcionCaracteresVectorizadaSeparada <- function(texto_vector) {
   }
 } # EFICIENTE
 
+catalogoCodigoCuenta <- function(tabla_balance_financiero) {
+  requerirPaquetes("dplyr")
+  catalogo <-
+    tabla_balance_financiero %>%
+    group_by(CUENTA) %>%
+    reframe(CODIGO = unique(CODIGO),
+            SEGMENTO = paste(sort(unique(SEGMENTO)), collapse = ", "),
+            `PRIMERA FECHA DE USO` = min(FECHA),
+            `ULTIMA FECHA DE USO` = max(FECHA)) %>%
+    add_count(CODIGO) %>%
+    rename(`NUMERO DE CUENTAS POR CODIGO` = n) %>%
+    add_count(CUENTA) %>%
+    rename(`NUMERO DE CODIGOS POR CUENTA` = n)
+  return(catalogo)
+}
+
+catalogoCuentas <- function(tabla_balance_financiero) {
+  requerirPaquetes("dplyr")
+  catalogo <-
+    tabla_balance_financiero %>%
+    distinct(FECHA, CODIGO, CUENTA, SEGMENTO) %>%
+    arrange(FECHA)
+  exportarReporteTabla(catalogo,  paste("Catalogo de Cuentas", "SEPS"))
+  ruta_dir_compartida <- "\\\\192.168.10.244\\inteligencia"
+  exportarReporteTabla(catalogo,  paste("Catalogo de Cuentas", "SEPS"), ruta_dir_compartida)
+  return(catalogo)
+}
+
 # Descarga----
 
 analisisVinculosPaginaWebSEPS <- function() {
@@ -1142,7 +1174,6 @@ crearEstadosFinancierosSEPS <- function() {
   
   lista_SEPS <- generarListaTablasSEPS()
   
-  tic <- Sys.time()
   tabla_concatenada <- # Verificado en prueba 2023/06/22
     lista_SEPS %>%
     dplyr::bind_rows() %>%
@@ -1153,18 +1184,8 @@ crearEstadosFinancierosSEPS <- function() {
     ) %>%
     dplyr::mutate(
       `RAZON_SOCIAL` = correcionCaracteresVectorizadaSeparada(`RAZON_SOCIAL`),
-      `CUENTA` = correcionCaracteresVectorizadaSeparada(`CUENTA`))
-  difftime(Sys.time(),tic, units = "auto")
-    # dplyr::rename(
-    #   `RAZON_SOCIAL_ORIGINAL` = `RAZON_SOCIAL`,
-    #   `CUENTA_ORIGINAL` = `CUENTA`) %>% 
-    # dplyr::mutate(
-    #   `RAZON_SOCIAL_CORREGIDA` = correcionCaracteresVectorizada(`RAZON_SOCIAL_ORIGINAL`),
-    #   `CUENTA_CORREGIDA` = correcionCaracteresVectorizada(`CUENTA_ORIGINAL`)) %>%
-    # dplyr::mutate(
-    #   `CORRECCION` =
-    #     (`RAZON_SOCIAL_ORIGINAL` != `RAZON_SOCIAL_CORREGIDA`) | 
-    #     (`CUENTA_ORIGINAL` != `CUENTA_CORREGIDA`))
+      `CUENTA` = correcionCaracteresVectorizadaSeparada(`CUENTA`)) %>%
+    dplyr::arrange(`FECHA`)
   
   exportarResultadosCSV(tabla_concatenada,"SEPS Estados Financieros")
   
@@ -2036,7 +2057,7 @@ fusionarBalancesSBEstadosSEPSFinancieros <- function() {
   requerirPaquetes()
   
   SB <- crearBalancesFinancierosSB() # Verificado en prueba 2023/06/09
-  SEPS <- crearEstadosFinancierosSEPS() # Verificado en prueba 2023/06/21
+  SEPS <- crearEstadosFinancierosSEPS() # Verificado en prueba 2023/06/26
   BEF <- rbind(SEPS, SB)
   
   exportarEstadosFinancierosSEPSmensualSIEVA() # Verificado en prueba 2023/06/16
