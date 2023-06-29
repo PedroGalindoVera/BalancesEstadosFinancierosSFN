@@ -458,7 +458,7 @@ estandarizarCadenaCaracteres <- function(texto_vector, ver_control_cambios = FAL
   if ( isTRUE(ver_control_cambios) ) {
     return(tabla_control_cambios(texto_vector))
   }
-  cat("\n\033[1;32mEstandarizando caracteres comunes...\033[0m\n")
+  cat("\n\033[1;32mEstandarizando caracteres usuales...\033[0m\n")
   texto_modificado <-
     texto_vector %>%
     chartr("[ÁÉÍÓÚ.]", "[AEIOU ]", .) %>% #Remplaza tildes
@@ -500,6 +500,7 @@ estandarizarCadenaCaracteresSeparada <- function(texto_vector, ver_control_cambi
   estandarizar <- function(texto_vector) {
     texto_modificado <-
       texto_vector %>%
+      toupper() %>%
       chartr("[ÁÉÍÓÚ.]", "[AEIOU ]", .) %>% #Remplaza tildes
       gsub(" {2,}", " ", .) %>% #Elimina espaciados múltiples
       gsub("^\\s+", "", .) %>% #Elimina espaciados al inicio de la cadena
@@ -511,6 +512,9 @@ estandarizarCadenaCaracteresSeparada <- function(texto_vector, ver_control_cambi
   if ( isTRUE(ver_control_cambios) ) {
     return(tabla_control_cambios(texto_vector))
   }
+  # nombre_argumento_texto_vector <- deparse(substitute(texto_vector))
+  # cat("\n\033[1;32m","Estandarizando caracteres comunes en el objeto",
+  #     nombre_argumento_texto_vector,"\033[0m\n")
   cat("\n\033[1;32mEstandarizando caracteres comunes...\033[0m\n")
   
   indices <- seq_along(texto_vector)
@@ -561,7 +565,7 @@ analisisCaracteresIncorrectos <- function(texto_vector, certidumbre = NULL) {
   }
   palabrasCorrectas <- function(texto_vector) {
     expresion_regular <- "^[a-záéíóúüñA-ZÁÉÍÓÚÜÑ0-9]+$"
-    separadores <- "[ .,;/\\(\\)\"–-]"
+    separadores <- "[ .,;%/\\(\\)\"–-]"
     vectorTexto2palabras(texto_vector, separadores, expresion_regular)
   }
   palabrasIncorrectas <- function(texto_vector, patron_incorrecto = NULL) {
@@ -572,11 +576,11 @@ analisisCaracteresIncorrectos <- function(texto_vector, certidumbre = NULL) {
         patron_incorrecto
       }
     #separadores <- "[ .;/-]"
-    separadores <- "[ .,;/\\(\\)\"–-]"
+    separadores <- "[ .,;%/\\(\\)\"–-]"
     vectorTexto2palabras(texto_vector, separadores, expresion_regular)
   }
   caracteresIncorrectos <- function(texto_vector, certidumbre = NULL) {
-    expresion_regular <- "[^a-záéíóúüñA-ZÁÉÍÓÚÜÑ0-9 .,;/\\(\\)\"–-]+"
+    expresion_regular <- "[^a-záéíóúüñA-ZÁÉÍÓÚÜÑ0-9 .,;%/\\(\\)\"–-]+"
     texto_vector_unico <- sort(unique(texto_vector))
     if ( length(texto_vector_unico) > 100000  ) {
       if ( is.null(certidumbre) ) certidumbre = 0.05
@@ -642,13 +646,13 @@ analisisCaracteresIncorrectos <- function(texto_vector, certidumbre = NULL) {
   }
   textoConCaracteresCorrectos <- function(texto_vector) {
     texto_unico <- sort(unique(texto_vector))
-    expresion_regular <- "^[a-záéíóúüñA-ZÁÉÍÓÚÜÑ0-9 .,;/\\(\\)\"–-]+$"
+    expresion_regular <- "^[a-záéíóúüñA-ZÁÉÍÓÚÜÑ0-9 .,;%/\\(\\)\"–-]+$"
     texto_correcto <- grep(expresion_regular, texto_unico, value = TRUE)
     return(texto_correcto)
   }
   textoConCaracteresIncorrectos <- function(texto_vector) {
     texto_unico <- sort(unique(texto_vector))
-    expresion_regular <- "[^a-záéíóúüñA-ZÁÉÍÓÚÜÑ0-9 .,;/\\(\\)\"–-]"
+    expresion_regular <- "[^a-záéíóúüñA-ZÁÉÍÓÚÜÑ0-9 .,;%/\\(\\)\"–-]"
     texto_incorrecto <- grep(expresion_regular, texto_unico, value = TRUE)
     return(texto_incorrecto)
   }
@@ -796,6 +800,24 @@ correcionCaracteresVectorizadaSeparada <- function(texto_vector) {
     cat("\n\033[1;32mNo se encontró caracteres por corregir.\033[0m\n")
   }
 } # EFICIENTE
+
+particionarModificacion <- function(funcion_modificacion, argumento, n_partes = NA) {
+  if ( is.function(funcion_modificacion) ) {
+    if ( is.na(n_partes) ) n_partes = 100
+    indices <- seq_along(argumento)
+    partes <- split(indices, cut(indices, breaks = n_partes, labels = FALSE))
+    modificacion <- NULL
+    barraProgresoReinicio()
+    for (parte in partes) {
+      modificacion[parte] <- funcion_modificacion(argumento[parte])
+      barraProgreso2(partes)
+    }
+    return(modificacion)
+  } else {
+    stop("El primer argumento debe ser una función que modifique al segundo argumento.")
+    return(argumento)
+  }
+}
 
 catalogoCodigoCuenta <- function(tabla_balance_financiero) {
   requerirPaquetes("dplyr")
@@ -1201,7 +1223,7 @@ exportarEstadosFinancierosSEPSmensualSIEVA <- function(data_frame) {
   ultima_fecha <- max(SEPS$FECHA)
   
   SEPS_SIEVA_mensual <-
-    SEPS %>%
+    data_frame %>%
     filter(
       FECHA == ultima_fecha,
       SEGMENTO %in% c("MUTUALISTA", "SEGMENTO 1", "SEGMENTO 2", "SEGMENTO 3")) %>%
@@ -1851,8 +1873,13 @@ hojaToTablaBoletinesFinancierosSB <- function(ruta_libro, nombre_hoja, fecha_cor
     filter( !(is.na(CODIGO) & is.na(CUENTA)) ) %>%
     # Eliminamos las filas donde todas las columnas son NA excepto CUENTA
     filter( !if_all(-CUENTA, is.na) ) %>%
-    # Eliminamos las filas donde la columna CODIGO tenga letras mientras todas las las demás columnas son NA
+    # Eliminamos las filas donde la columna CODIGO tenga letras mientras todas las demás columnas son NA
     filter( !(grepl("[[:alpha:]]+",CODIGO) & if_all(-CODIGO, is.na)) ) %>%
+    #
+    # Eliminamos las filas donde la columna CODIGO tenga letras y la columna CUENTA es NA
+    # filter( !(grepl("[[:alpha:]]+",CODIGO) & is.na(CUENTA)) ) %>%
+    # filter( !(grepl("[[:alpha:]]+",CODIGO) & grepl("[[:alpha:]]+",CUENTA) & is.na(VALOR) ) ) %>%
+    #
     # Agregamos la columna con la fechas de corte
     mutate(`FECHA` = rep(fecha_corte)) %>%
     # Movemos la columna FECHA al inicio de la tabla
@@ -2014,24 +2041,73 @@ crearBalancesFinancierosSB <- function() {
   #eliminarArchivosZipEnDirectorio(destino)
   #depurarDirectorioPorAnio(destino)
   
-  # ETAPA 2: Consolidación del la tabla de Balance Financiero de la Banca privada ----
+  # ETAPA 2: Consolidación de la tabla de Balance Financiero de la Banca privada ----
   ruta_directorio_privada = "data/Fuente/SB/Boletines Financieros Mensuales/Bancos Privados"
   privada <- compilarHojasBalanceFinancieroSB(ruta_directorio_privada) %>%
     mutate(SEGMENTO = "PRIVADA") # Verificado en prueba individual 2023/05/11
   
-  # ETAPA 3: Consolidación del la tabla de Balance Financiero de la Banca privada ----
+  # ETAPA 3: Consolidación de la tabla de Balance Financiero de la Banca publica ----
   ruta_directorio_publica = "data/Fuente/SB/Boletines Financieros Mensuales/Instituciones Publicas"
   publica <- compilarHojasBalanceFinancieroSB(ruta_directorio_publica) %>%
     mutate(SEGMENTO = "PUBLICA")
   
   # ETAPA 4: Concatenación todas de tablas consolidadas ----
   cat("\n\nConcatenando tablas y agregando RUC...\n")
-  consolidada <-
-    dplyr::bind_rows(privada,publica) %>%
+  concatenada <-
+    dplyr::bind_rows(privada, publica) %>%
+    dplyr::mutate(RAZON_SOCIAL =  as.character(RAZON_SOCIAL))  %>%
     agregarRUCenSB() %>%
     dplyr::select(FECHA, SEGMENTO, RUC, RAZON_SOCIAL, CODIGO, CUENTA, VALOR)
   
-  # ETAPA 5: Exportación de base de datos generada ----
+  # ETAPA 5: Estandarizacion de la tabla concatenada ----
+  cat("\n\nEstandarizando tabla concatenada....\n")
+  correcionCaracteresSB <- function(texto_vector) {
+    cat("\n\033[1;32mCorreción de caracteres particionada...\033[0m\n")
+    correcciones <- function(texto_vector) {
+      texto_corregido <- 
+        texto_vector %>%
+        gsub("\r\n", " ", .) %>% 
+        gsub("", "ON", .) %>%
+        gsub("馘", "ED", .)
+      return(texto_corregido)
+    }
+    texto_vector_corregido <-
+      particionarModificacion(correcciones, texto_vector)
+    return(texto_vector_corregido)
+  }
+
+  #
+  depurar <- function(tabla) {
+    tabla_depurada <-
+      tabla %>%
+      # Eliminamos las filas donde la columna CODIGO tenga letras y la columna CUENTA sea NA
+      filter( !( grepl("[[:alpha:]]+",CODIGO) & is.na(CUENTA) ) ) %>%
+      # Eliminamos las filas donde las columnas CODIGO y CUENTA tenga letras y la columna VALOR sea NA
+      filter( !( grepl("[[:alpha:]]+",CODIGO) & grepl("[[:alpha:]]+",CUENTA) & is.na(VALOR) ) ) %>%
+      # Eliminamos las filas donde las columnas CODIGO contenga un signo positivo
+      filter( !( grepl("\\+",CODIGO) ) ) %>%
+      #
+      filter( !( grepl("0",CODIGO) | grepl("CUADRE",CUENTA) | is.na(CUENTA) ) ) %>%
+      # Eliminamos los signos negativos de la columna CODIGO
+      mutate( CODIGO = gsub("-", "", CODIGO) )
+    return(tabla_depurada)
+  }
+  #
+  
+  consolidada <-
+    concatenada %>%
+    dplyr::mutate(
+      `RAZON_SOCIAL` = estandarizarCadenaCaracteresSeparada(`RAZON_SOCIAL`),
+      `CUENTA` = estandarizarCadenaCaracteresSeparada(`CUENTA`)
+    ) %>%
+    dplyr::mutate(
+      `RAZON_SOCIAL` = correcionCaracteresSB(`RAZON_SOCIAL`),
+      `CUENTA` = correcionCaracteresSB(`CUENTA`)
+    ) %>%
+    depurar() %>%
+    dplyr::arrange(`FECHA`)
+  
+  # ETAPA 6: Exportación de base de datos generada ----
   exportarResultadosCSV(consolidada,"SB Balances Financieros")
   cat("\n\n  \033[1;34mDuración total del proceso \"Balances Financieros SB\":",
       formatoTiempoHMS(difftime(Sys.time(), tic_general, units = "secs")), "\033[0m\n")
@@ -2056,7 +2132,7 @@ fusionarBalancesSBEstadosSEPSFinancieros <- function() {
   
   requerirPaquetes()
   
-  SB <- crearBalancesFinancierosSB() # Verificado en prueba 2023/06/09
+  SB <- crearBalancesFinancierosSB() # Verificado en prueba 2023/06/29
   SEPS <- crearEstadosFinancierosSEPS() # Verificado en prueba 2023/06/26
   BEF <- rbind(SEPS, SB)
   
