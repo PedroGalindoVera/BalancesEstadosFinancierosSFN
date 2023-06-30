@@ -2055,12 +2055,14 @@ crearBalancesFinancierosSB <- function() {
   cat("\n\nConcatenando tablas y agregando RUC...\n")
   concatenada <-
     dplyr::bind_rows(privada, publica) %>%
+    #dplyr::distinct() %>%
     dplyr::mutate(RAZON_SOCIAL =  as.character(RAZON_SOCIAL))  %>%
     agregarRUCenSB() %>%
     dplyr::select(FECHA, SEGMENTO, RUC, RAZON_SOCIAL, CODIGO, CUENTA, VALOR)
   
   # ETAPA 5: Estandarizacion de la tabla concatenada ----
   cat("\n\nEstandarizando tabla concatenada....\n")
+  
   correcionCaracteresSB <- function(texto_vector) {
     cat("\n\033[1;32mCorreción de caracteres particionada...\033[0m\n")
     correcciones <- function(texto_vector) {
@@ -2075,27 +2077,52 @@ crearBalancesFinancierosSB <- function() {
       particionarModificacion(correcciones, texto_vector)
     return(texto_vector_corregido)
   }
-
+  correccionCodigoSB <- function(texto_vector) {
+    caracter_incorrecto <- as.character(seq(100,700,100))
+    caracter_correcto <- as.character(seq(1,7))
+    correcciones <- stats::setNames(caracter_correcto, caracter_incorrecto)
+    
+    indices <- seq_along(texto_vector)
+    partes <- split(indices, cut(indices, breaks = 100, labels = FALSE))
+    texto_corregido <- character()
+    barraProgresoReinicio()
+    for (parte in partes) {
+      texto_corregido[parte] <-
+        stringr::str_replace_all(texto_vector[parte], correcciones)
+      barraProgreso2(partes)
+    }
+    return(texto_corregido)
+  }
   #
   depurar <- function(tabla) {
     tabla_depurada <-
       tabla %>%
-      # Eliminamos las filas donde la columna CODIGO tenga letras y la columna CUENTA sea NA
-      filter( !( grepl("[[:alpha:]]+",CODIGO) & is.na(CUENTA) ) ) %>%
-      # Eliminamos las filas donde las columnas CODIGO y CUENTA tenga letras y la columna VALOR sea NA
-      filter( !( grepl("[[:alpha:]]+",CODIGO) & grepl("[[:alpha:]]+",CUENTA) & is.na(VALOR) ) ) %>%
-      # Eliminamos las filas donde las columnas CODIGO contenga un signo positivo
-      filter( !( grepl("\\+",CODIGO) ) ) %>%
-      #
-      filter( !( grepl("0",CODIGO) | grepl("CUADRE",CUENTA) | is.na(CUENTA) ) ) %>%
-      # Eliminamos los signos negativos de la columna CODIGO
-      mutate( CODIGO = gsub("-", "", CODIGO) )
+      # Eliminamos CODIGO con negativos
+      filter( ! as.integer(CODIGO) < 0 )
+    
+    
+    
+      # # Eliminamos las filas donde la columna CODIGO tenga letras y la columna CUENTA sea NA
+      # #filter( !( grepl("[[:alpha:]]+",CODIGO) & is.na(CUENTA) ) ) %>%
+      # # Eliminamos las filas donde las columnas CODIGO y CUENTA tenga letras y la columna VALOR sea NA
+      # filter( !( grepl("[[:alpha:]]+",CODIGO) & grepl("[[:alpha:]]+",CUENTA) & is.na(VALOR) ) ) %>%
+      # #filter( !( grepl("[[:alpha:]]+",CODIGO) & grepl("[[:alpha:]]+",CUENTA) ) ) %>%
+      # # Eliminamos las filas donde las columna CODIGO contenga un signo positivo
+      # filter( !( grepl("\\+",CODIGO) ) ) %>%
+      # #
+      # filter( !( is.na(CODIGO) & is.na(VALOR) ) ) %>%
+      # # Eliminamos las filas conde la columna CUENTA es "TOTAL ACTIVO Y GASTOS" por que no es cuenta necesaria
+      # filter( CUENTA != "TOTAL ACTIVO Y GASTOS" ) %>%
+      # #
+      # filter( !( grepl("0",CODIGO) & (grepl("CUADRE",CUENTA)|is.na(CUENTA)) ) ) %>%
+      # # Eliminamos los signos negativos de la columna CODIGO
+      # mutate( CODIGO = gsub("-", "", CODIGO) )
     return(tabla_depurada)
   }
   #
   
   consolidada <-
-    concatenada %>%
+    concatenada %>% dplyr::distinct() %>%
     dplyr::mutate(
       `RAZON_SOCIAL` = estandarizarCadenaCaracteresSeparada(`RAZON_SOCIAL`),
       `CUENTA` = estandarizarCadenaCaracteresSeparada(`CUENTA`)
