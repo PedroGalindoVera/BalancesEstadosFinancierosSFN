@@ -49,12 +49,23 @@ SB <- SB %>%
             reemplazarTextoParticionado(
               c("^ACTIVO$","^TOTAL ACTIVO$","^TOTAL ACTIVOS$","^PASIVO$","^TOTAL PASIVO$","^TOTAL PASIVOS$","^TOTAL PATRIMONIO$","^TOTAL INGRESOS$"),
               c("ACTIVOS","ACTIVOS","ACTIVOS","PASIVOS","PASIVOS","PASIVOS","PATRIMONIO","INGRESOS"),
-              CUENTA) )
+              CUENTA) ) %>%
+  distinct() 
 
 SB %>% distinct(CODIGO, CUENTA) %>% View()
-SB %>% filter(CODIGO == 1)
+SB %>% filter(CODIGO == 1) %>% View()
 
-SB_ <- SB %>%
+SB_distinct <- SB %>%
+  group_by(FECHA, SEGMENTO, RUC, RAZON_SOCIAL, CODIGO, CUENTA) %>%
+  filter(if (any(is.na(VALOR)) & n() > 1) !is.na(VALOR) else TRUE) %>%
+  ungroup()
+
+SB_distinct %>% filter(CODIGO == 1) %>% View()
+
+
+
+
+SB_ <- SB %>% 
   group_by(FECHA, SEGMENTO, RUC, RAZON_SOCIAL, CODIGO, CUENTA) %>%
   filter(!(duplicated(VALOR) & is.na(VALOR))) %>%
   ungroup()
@@ -69,4 +80,12 @@ SB_ <- SB %>% sample_n(100000) %>%
 
 SB_ %>% filter(CODIGO == 1) %>% View()
 
+
+
+SB_distinct <- SB %>%
+  group_by(FECHA, SEGMENTO, RUC, RAZON_SOCIAL, CODIGO, CUENTA) %>%
+  filter(if (any(is.na(VALOR))) !is.na(VALOR) else TRUE) %>%
+  ungroup()
+
+SB_distinct %>% filter(CODIGO == 1) %>% View()
 

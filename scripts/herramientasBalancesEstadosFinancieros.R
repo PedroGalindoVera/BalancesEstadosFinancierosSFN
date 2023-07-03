@@ -801,6 +801,29 @@ correcionCaracteresVectorizadaSeparada <- function(texto_vector) {
   }
 } # EFICIENTE
 
+reemplazarTextoParticionado <- function(patron, reemplazo, texto_vector, n_partes = NULL) {
+  patron = as.character(patron)
+  reemplazo = as.character(reemplazo)
+  modificaciones <- stats::setNames(reemplazo, patron)
+  indices <- seq_along(texto_vector)
+  if ( is.null(n_partes) ) {
+    n_partes = 100 
+  } else if ( is.integer(n_partes) & n_partes > 0 & n_partes <= length(texto_vector)  ) {
+    n_partes
+  } else {
+    stop("n_pates debe ser un entero positivo mayor al tamaño del vector a modificar")
+  }
+  partes <- split(indices, cut(indices, breaks = n_partes, labels = FALSE))
+  texto_modificado <- character()
+  barraProgresoReinicio()
+  for (parte in partes) {
+    texto_modificado[parte] <-
+      stringr::str_replace_all(texto_vector[parte], modificaciones)
+    barraProgreso2(partes)
+  }
+  return(texto_modificado)
+}
+
 particionarModificacion <- function(funcion_modificacion, argumento, n_partes = NA) {
   if ( is.function(funcion_modificacion) ) {
     if ( is.na(n_partes) ) n_partes = 100
@@ -845,6 +868,48 @@ catalogoCuentas <- function(tabla_balance_financiero) {
   ruta_dir_compartida <- "\\\\192.168.10.244\\inteligencia"
   exportarReporteTabla(catalogo,  paste("Catalogo de Cuentas", "SEPS"), ruta_dir_compartida)
   return(catalogo)
+}
+
+generarCatalogosSEPS <- function(tabla_balance_financiero) {
+  requerirPaquetes("dplyr")
+  
+  ruta_dir_compartida <- "\\\\192.168.10.244\\inteligencia\\FUENTE DE DATOS\\Catalogos"
+  
+  catalogo_cuentas <-
+    tabla_balance_financiero %>%
+    distinct(FECHA, CODIGO, CUENTA, SEGMENTO) %>%
+    arrange(FECHA)
+  nombre_archivo <- paste("Catalogo OSFPS de Cuentas Historico", "SEPS")
+  exportarReporteTabla(catalogo_cuentas, nombre_archivo)
+  exportarReporteTabla(catalogo_cuentas, nombre_archivo, ruta_dir_compartida)
+  
+  catalogo_cuentas_actualizada <-
+    catalogo_cuentas %>%
+    group_by(CODIGO) %>%
+    filter(FECHA == max(FECHA)) %>%
+    slice_tail(n = 1) %>%
+    ungroup()
+  nombre_archivo <- paste("Catalogo OSFPS de Cuentas Contables Actualizada", "SEPS")
+  exportarReporteTabla(catalogo_cuentas_actualizada, nombre_archivo)
+  exportarReporteTabla(catalogo_cuentas_actualizada, nombre_archivo, ruta_dir_compartida)
+  
+  catalogo_OSFPS_general <-
+    tabla_balance_financiero %>%
+    distinct(FECHA, RUC, RAZON_SOCIAL, SEGMENTO) %>%
+    arrange(FECHA)
+  nombre_archivo <- paste("Catalogo OSFPS Hitorico", "SEPS")
+  exportarReporteTabla(catalogo_OSFPS_general,  nombre_archivo)
+  exportarReporteTabla(catalogo_OSFPS_general,  nombre_archivo, ruta_dir_compartida)
+  
+  catalogo_OSFPS_ultima_actualizacion <- catalogo_OSFPS_general %>%
+    group_by(RUC, RAZON_SOCIAL) %>%
+    filter(FECHA == max(FECHA)) %>%
+    ungroup()
+  nombre_archivo <- paste("Catalogo OSFPS Ultima Actualizacion", "SEPS")
+  exportarReporteTabla(catalogo_OSFPS_ultima_actualizacion, nombre_archivo)
+  exportarReporteTabla(catalogo_OSFPS_ultima_actualizacion, nombre_archivo, ruta_dir_compartida)
+  
+  #return(catalogo)
 }
 
 # Descarga----
@@ -1481,20 +1546,16 @@ frecuenciaEmpiricaRelativaOcurrenciaDecimalEnTexto <- function(cadena_texto) {
   # cadena_texto: es un vector tipo char que puede contener diferentes tipos de información todos convertidos en carácteres.
   
   # Ejemplo: frecuenciaEmpiricaRelativaOcurrenciaDecimalEnTexto(c("a",1,3.14,Sys.Date())) devolverá 0.25 como la frecuencia relativa por le 3.14
-  
-  # Configuramos el objeto leído
-  
+
   # Determinamos expresiones regulares para excluir expresiones con puntos y solo admitir con números
   expresion_regular_codigo <- "^[[:digit:]]{1,6}$"
   # Determinamos expresiones regulares para identificar números con o sin decimales, positivos o negativos, con o sin notación científica
-  #expresion_regular_numero <- "^[0-9]+([.,][0-9]+)?$"
-  #expresion_regular_numero <- "^[-]?[0-9]+([.,][0-9]+)?(E-?[0-9]+)?$"
   expresion_regular_numero <- "^[-]?[0-9]+([.,][0-9]+)?([Ee][-+]?[0-9]+)?$"
   # Determinamos expresiones regulares para para el cero como palabra completa
   expresion_regular_cero <- "^[0]?$"
   # Determinamos la prueba lógica para números decimales excluyendo los enteros pero aceptando el cero y NA
   prueba_numero_decimal <- 
-    ( !grepl(expresion_regular_codigo, cadena_texto) & 
+    ( ! grepl(expresion_regular_codigo, cadena_texto) & 
         grepl(expresion_regular_numero, cadena_texto) ) |
     grepl(expresion_regular_cero, cadena_texto) |
     is.na(cadena_texto)
@@ -1505,20 +1566,16 @@ frecuenciaEmpiricaRelativaOcurrenciaDecimalEnTexto <- function(cadena_texto) {
 }
 
 indicePrimeraFilDecimalTabla <- function(tabla) {
-  
+  filas <- 1:nrow(tabla)
   frecuencia_ocurrencia_decimal_filas <-
     sapply(
-      1:nrow(tabla),
+      filas,
       function(fila) {
         cadena_texto <- as.character(tabla[fila,])
         frecuenciaEmpiricaRelativaOcurrenciaDecimalEnTexto(cadena_texto)
       }
     )
-  # diferencia_absoluta <- abs(diff(frecuencia_ocurrencia_decimal_filas))
-  # diferencia_maxima <- max(diferencia_absoluta)
-  # intersect(which(diferencia_absoluta == diferencia_maxima), which.min(frecuencia_ocurrencia_decimal_filas)) + 1
   primera_fila_decimal <- which.min(frecuencia_ocurrencia_decimal_filas) + 1
-  
   return(primera_fila_decimal)
 }
 
@@ -1705,33 +1762,34 @@ analisisDifusoNLPFechaCorte <- function(tabla) {
   return(fecha_corte)
 }
 
-analisisTextoSimilar <- function(texto, catalogo, precision) {
-  distancia <-
-    stringdist::stringsimmatrix(catalogo, texto, method = "cosine")
-    #stringdist::stringsimmatrix(catalogo, texto, method = "jw")
-    # "cosine" parece funcionar mejor para comparar fraces
-  rownames(distancia) <- catalogo
-  colnames(distancia) <- texto
-  incidice_maximal <- apply(distancia, 2, which.max)
-  texto_similar <- catalogo[incidice_maximal]
-  distancia_maxima <-
-    sapply(seq_along(incidice_maximal),
-           function(k) distancia[incidice_maximal[k],
-                                 names(incidice_maximal[k])])
-  identificacion <-
-    data.frame(
-      "Original" = texto,
-      "Similar" = texto_similar,
-      "DistanciaJW" = distancia_maxima) %>%
-    dplyr::mutate(Correccion = ifelse(DistanciaJW < precision, NA, Similar))
-  return(identificacion)
-}
-
 modificarNombreColumnaSB <- function(tabla, precision = NULL, catalogo = NULL) {
   
   # Función para identificar, modificar los nombres de las columnas de una tabla utilizando un catálogo de operadores y el método de similitud de cadenas Jaro-Winkler.
   
   # Ejemplo de uso: tabla <- modificarNombreColumnaSB(tabla = tabla)
+  
+  analisisTextoSimilar <- function(texto, catalogo, precision) {
+    requerirPaquetes("stringdist")
+    distancia <-
+      stringdist::stringsimmatrix(catalogo, texto, method = "cosine")
+    #stringdist::stringsimmatrix(catalogo, texto, method = "jw")
+    # "cosine" parece funcionar mejor para comparar fraces
+    rownames(distancia) <- catalogo
+    colnames(distancia) <- texto
+    incidice_maximal <- apply(distancia, 2, which.max)
+    texto_similar <- catalogo[incidice_maximal]
+    distancia_maxima <-
+      sapply(seq_along(incidice_maximal),
+             function(k) distancia[incidice_maximal[k],
+                                   names(incidice_maximal[k])])
+    identificacion <-
+      data.frame(
+        "Original" = texto,
+        "Similar" = texto_similar,
+        "DistanciaJW" = distancia_maxima) %>%
+      dplyr::mutate(Correccion = ifelse(DistanciaJW < precision, NA, Similar))
+    return(identificacion)
+  }
   
   if ( is.null(precision) ) precision = 0.85
   if ( is.null(catalogo) ) {
@@ -1795,7 +1853,7 @@ hojaToTablaBoletinesFinancierosSB <- function(ruta_libro, nombre_hoja, fecha_cor
   # Esta función permite extraer la tabla de datos contenida en un hoja de cálculo correspondiente a los "Boletines Financieros mensuales" de la SB
   
   # ARGUMENTOS:
-  # ruta_libro <- "data/Fuente/SB/PRIVADA/2023/FINANCIERO MENSUAL BANCA PRIVADA 2023_02.xlsx"
+  # ruta_libro <- "data/Fuente/SB/Boletines Financieros Mensuales/Bancos Privados/2023/FINANCIERO MENSUAL BANCA PRIVADA 2023_02.xlsx"
   # nombre_hoja <- "BALANCE"
   # fecha_corte <- "2023-02-29"
   # EJEMPLO: tabla <- hojaToTablaBoletinesFinancierosSB(ruta_libro, nombre_hoja, fecha_corte)
@@ -1857,12 +1915,12 @@ hojaToTablaBoletinesFinancierosSB <- function(ruta_libro, nombre_hoja, fecha_cor
   # Agregamos la columna con la fecha del "Boletín Financiero mensual"
   tabla_modificada <-
     tabla %>%
-    # Eliminamos las columnas que no contengan caracteres alfabéticos
+    # Eliminamos las columnas cuyo nombre contengan caracteres alfabéticos
     select( -matches("^[^[:alpha:]]+$", .) ) %>%
     # Eliminamos las filas que contienen únicamente valores NA
     filter( !if_all(everything(), is.na) ) %>%
     # Empleamos la función creada para modificar los nombres de las columnas según un catálogo por defecto
-    modificarNombreColumnaSB(tabla = ., precision = 0.8) %>%
+    modificarNombreColumnaSB(tabla = ., precision = 0.85) %>%
     # Modificamos la columna CODIGO a texto
     mutate(CODIGO = as.character(CODIGO)) %>%
     # Modificamos la columna CUENTA a texto
@@ -1875,11 +1933,6 @@ hojaToTablaBoletinesFinancierosSB <- function(ruta_libro, nombre_hoja, fecha_cor
     filter( !if_all(-CUENTA, is.na) ) %>%
     # Eliminamos las filas donde la columna CODIGO tenga letras mientras todas las demás columnas son NA
     filter( !(grepl("[[:alpha:]]+",CODIGO) & if_all(-CODIGO, is.na)) ) %>%
-    #
-    # Eliminamos las filas donde la columna CODIGO tenga letras y la columna CUENTA es NA
-    # filter( !(grepl("[[:alpha:]]+",CODIGO) & is.na(CUENTA)) ) %>%
-    # filter( !(grepl("[[:alpha:]]+",CODIGO) & grepl("[[:alpha:]]+",CUENTA) & is.na(VALOR) ) ) %>%
-    #
     # Agregamos la columna con la fechas de corte
     mutate(`FECHA` = rep(fecha_corte)) %>%
     # Movemos la columna FECHA al inicio de la tabla
@@ -2077,49 +2130,49 @@ crearBalancesFinancierosSB <- function() {
       particionarModificacion(correcciones, texto_vector)
     return(texto_vector_corregido)
   }
-  correccionCodigoSB <- function(texto_vector) {
-    caracter_incorrecto <- as.character(seq(100,700,100))
-    caracter_correcto <- as.character(seq(1,7))
-    correcciones <- stats::setNames(caracter_correcto, caracter_incorrecto)
+  depurarCodigoCuentaSB <- function(data_frame) {
     
-    indices <- seq_along(texto_vector)
-    partes <- split(indices, cut(indices, breaks = 100, labels = FALSE))
-    texto_corregido <- character()
-    barraProgresoReinicio()
-    for (parte in partes) {
-      texto_corregido[parte] <-
-        stringr::str_replace_all(texto_vector[parte], correcciones)
-      barraProgreso2(partes)
-    }
-    return(texto_corregido)
+    requerirPaquetes("dplyr")
+    
+    irregularidades_CODIGO_CUENTA <-
+      data_frame %>%
+      filter( grepl("^200$|^500$|^600$|^700$|[[:alpha:]]|^0$|\\+|-",CODIGO) ) %>% 
+      distinct(CODIGO,CUENTA)
+    
+    exportarReporteTabla(irregularidades_CODIGO_CUENTA,
+                         "Irregularidades CODIGO CUENTA SB")
+    
+    SB <-
+      data_frame %>%
+      filter( ! grepl("^200$|^500$|^600$|^700$|[[:alpha:]]|^0$|\\+|-",CODIGO) ) %>%
+      mutate( CODIGO = reemplazarTextoParticionado(c(100,300,400),c(1,2,3),CODIGO))
+    
+    catalogo_CODIGO_SB <-
+      data_frame %>%
+      group_by(CODIGO, CUENTA) %>%
+      summarise(CANTIDAD = n()) %>%
+      filter( grepl("^[0-9]+$", CODIGO) ) %>%
+      mutate( CODIGO = as.integer(CODIGO) ) %>%
+      filter( CODIGO > 0 )
+    
+    indices <- match(SB$CUENTA, catalogo_CODIGO_SB$CUENTA)
+    
+    SB <- SB %>%
+      mutate( CODIGO = ifelse(is.na(CODIGO), catalogo_CODIGO_SB$CODIGO[indices], CODIGO)) %>%
+      filter( ! is.na(CODIGO) ) %>%
+      mutate( CODIGO = as.integer(CODIGO) ) %>%
+      mutate( CUENTA = 
+                reemplazarTextoParticionado(
+                  c("^ACTIVO$","^TOTAL ACTIVO$","^TOTAL ACTIVOS$","^PASIVO$","^TOTAL PASIVO$","^TOTAL PASIVOS$","^TOTAL PATRIMONIO$","^TOTAL INGRESOS$"),
+                  c("ACTIVOS","ACTIVOS","ACTIVOS","PASIVOS","PASIVOS","PASIVOS","PATRIMONIO","INGRESOS"),
+                  CUENTA) ) %>%
+      distinct()
+    
+    SB <- SB %>%
+      group_by(FECHA, SEGMENTO, RUC, RAZON_SOCIAL, CODIGO, CUENTA) %>%
+      filter(if (any(is.na(VALOR)) & n() > 1) !is.na(VALOR) else TRUE) %>%
+      ungroup()
   }
-  #
-  depurar <- function(tabla) {
-    tabla_depurada <-
-      tabla %>%
-      # Eliminamos CODIGO con negativos
-      filter( ! as.integer(CODIGO) < 0 )
-    
-    
-    
-      # # Eliminamos las filas donde la columna CODIGO tenga letras y la columna CUENTA sea NA
-      # #filter( !( grepl("[[:alpha:]]+",CODIGO) & is.na(CUENTA) ) ) %>%
-      # # Eliminamos las filas donde las columnas CODIGO y CUENTA tenga letras y la columna VALOR sea NA
-      # filter( !( grepl("[[:alpha:]]+",CODIGO) & grepl("[[:alpha:]]+",CUENTA) & is.na(VALOR) ) ) %>%
-      # #filter( !( grepl("[[:alpha:]]+",CODIGO) & grepl("[[:alpha:]]+",CUENTA) ) ) %>%
-      # # Eliminamos las filas donde las columna CODIGO contenga un signo positivo
-      # filter( !( grepl("\\+",CODIGO) ) ) %>%
-      # #
-      # filter( !( is.na(CODIGO) & is.na(VALOR) ) ) %>%
-      # # Eliminamos las filas conde la columna CUENTA es "TOTAL ACTIVO Y GASTOS" por que no es cuenta necesaria
-      # filter( CUENTA != "TOTAL ACTIVO Y GASTOS" ) %>%
-      # #
-      # filter( !( grepl("0",CODIGO) & (grepl("CUADRE",CUENTA)|is.na(CUENTA)) ) ) %>%
-      # # Eliminamos los signos negativos de la columna CODIGO
-      # mutate( CODIGO = gsub("-", "", CODIGO) )
-    return(tabla_depurada)
-  }
-  #
   
   consolidada <-
     concatenada %>% dplyr::distinct() %>%
@@ -2131,7 +2184,8 @@ crearBalancesFinancierosSB <- function() {
       `RAZON_SOCIAL` = correcionCaracteresSB(`RAZON_SOCIAL`),
       `CUENTA` = correcionCaracteresSB(`CUENTA`)
     ) %>%
-    depurar() %>%
+    depurarCodigoCuentaSB() %>%
+    dplyr::distinct() %>%
     dplyr::arrange(`FECHA`)
   
   # ETAPA 6: Exportación de base de datos generada ----
