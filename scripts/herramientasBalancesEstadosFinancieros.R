@@ -1835,19 +1835,6 @@ modificarNombreColumnaSB <- function(tabla, precision = NULL, catalogo = NULL) {
   return(tabla)
 }
 
-nombreHojaSimilar <- function(ruta_libro, nombre_hoja_buscado) {
-  
-  # Determina la hoja en un libro de excel que tiene mayor similitud a la hoja buscada
-  
-  requerirPaquetes("readxl","stringdist")
-  
-  nombres_hojas <- readxl::excel_sheets(ruta_libro)
-  distancia <- stringdist::stringsimmatrix(nombre_hoja_buscado, nombres_hojas, method = "jw")
-  indice_hoja_similar <- which.max(distancia)
-  nombre_hoja_similar <- nombres_hojas[indice_hoja_similar]
-  return(nombre_hoja_similar)
-}
-
 hojaToTablaBoletinesFinancierosSB <- function(ruta_libro, nombre_hoja, fecha_corte = NULL) {
   
   # Esta función permite extraer la tabla de datos contenida en un hoja de cálculo correspondiente a los "Boletines Financieros mensuales" de la SB
@@ -1860,40 +1847,83 @@ hojaToTablaBoletinesFinancierosSB <- function(ruta_libro, nombre_hoja, fecha_cor
   
   requerirPaquetes("dplyr","readxl")
   
-  # Determinamos el nombre de hoja con mayor similitud al buscado
+  nombreHojaSimilar <- function(ruta_libro, nombre_hoja_buscado) {
+    
+    # Determina la hoja en un libro de excel que tiene mayor similitud a la hoja buscada
+    
+    requerirPaquetes("readxl","stringdist")
+    
+    nombres_hojas <- readxl::excel_sheets(ruta_libro)
+    distancia <- stringdist::stringsimmatrix(nombre_hoja_buscado, nombres_hojas, method = "jw")
+    indice_hoja_similar <- which.max(distancia)
+    nombre_hoja_similar <- nombres_hojas[indice_hoja_similar]
+    return(nombre_hoja_similar)
+  }
+  nombresColumnasOptimo <- function(ruta_libro, nombre_hoja, tabla_semilla) {
+    indice_fila_nombres_columnas <- indicePrimeraFilDecimalTabla(tabla_semilla) - 1
+    nombres_columnas <- unname(unlist(tabla_semilla[indice_fila_nombres_columnas,]))
+    tabla_prueba <- suppressMessages(readxl::read_excel(ruta_libro, sheet = nombre_hoja, col_names = TRUE, skip = indice_fila_nombres_columnas, n_max = 20))
+    # Verificamos si coinciden adecuadamente los nombres de las columnas
+    if ( mean(nombres_columnas == names(tabla_prueba), na.rm = TRUE) < 0.8 ) {
+      # Retrocedemos un índice en las filas previo a iterear para incluir cualquier caso exepcional
+      indice_fila_nombres_columnas <- indice_fila_nombres_columnas - 2
+      # Iteramos hasta que hayan coincidencias en al menos el 80%
+      while ( mean(nombres_columnas == names(tabla_prueba), na.rm = TRUE) < 0.8 & indice_fila_nombres_columnas <= 20 ) {
+        # Incrementamos el índice de la fila para continuar la prueba
+        indice_fila_nombres_columnas <- indice_fila_nombres_columnas + 1
+        # Reimportamos la tabla de prueba para verificar la correcta asignación de los nombres de las columnas en sus 20 primeras filas
+        tabla_prueba <- suppressMessages(readxl::read_excel(ruta_libro, sheet = nombre_hoja, col_names = TRUE, skip = indice_fila_nombres_columnas, n_max = 20))
+      }
+    }
+    return( list(fila = indice_fila_nombres_columnas, tabla = tabla_prueba) )
+  }
+  estandarizarNombreColumna <- function(tabla) {
+    nombres_columnas_estandarizados <-
+      tabla %>%
+      colnames() %>%
+      toupper() %>%
+      chartr("[ÁÉÍÓÚ]", "[AEIOU]", .) %>%
+      gsub(" {2,}"," ",.) %>%
+      gsub("^ | $","",.)
+    colnames(tabla) <- nombres_columnas_estandarizados
+    return(tabla)
+  }
+  modificarTablaSB <- function(tabla, fecha_corte) {
+    tabla %>%
+      estandarizarNombreColumna() %>%
+      select( -matches("^[^[:alpha:]]+$", .) ) %>%
+      filter_all( any_vars( ! is.na(.) ) ) %>%
+      mutate(
+        CODIGO = as.character(CODIGO),
+        CUENTA = as.character(CUENTA)) %>%
+      mutate_at( vars(-CODIGO, -CUENTA), as.numeric) %>%
+      filter( ! is.na(CODIGO) & ! is.na(CUENTA) ) %>%
+      mutate( FECHA = fecha_corte ) %>%
+      select( FECHA, everything() )
+    return(tabla)
+  }
+  
   nombre_hoja <- nombreHojaSimilar(ruta_libro, nombre_hoja)
-  # Importamos las 30 primeras filas de una hoja específica de un libro de excel en una ruta determinada
-  hoja <- suppressMessages(readxl::read_excel(ruta_libro, sheet = nombre_hoja, col_names = FALSE, n_max = 30))
-  # Regla de decisión para la fecha de corte
+  
+  tabla_semilla <- suppressMessages(readxl::read_excel(ruta_libro, sheet = nombre_hoja, col_names = FALSE, n_max = 30))
+  
   fecha_corte <-
     if ( is.null(fecha_corte) ) {
-      # Determinamos la fecha más probable contenida en la hoja importada
-      analisisDifusoNLPFechaCorte(hoja)
+      analisisDifusoNLPFechaCorte(tabla_prueba)
     } else {
       fecha_corte
     }
-  # Determinamos la fila más probable con los nombres de las columnas
-  indice_fila_nombres_columnas <- indicePrimeraFilDecimalTabla(hoja) - 1
-  # Almacenamos la fila con los nombres de las columnas
-  nombres_columnas <- unname(unlist(hoja[indice_fila_nombres_columnas,]))
-  # Importamos una tabla de prueba para verificar la correcta asignación de los nombres de las columnas en sus 20 primeras filas
-  tabla_prueba <- suppressMessages(readxl::read_excel(ruta_libro, sheet = nombre_hoja, col_names = TRUE, skip = indice_fila_nombres_columnas, n_max = 20))
-  # Verificamos si coinciden adecuadamente los nombres de las columnas
-  if ( mean(nombres_columnas == names(tabla_prueba), na.rm = TRUE) < 0.8 ) {
-    # Retrocedemos un índice en las filas previo a iterear para incluir cualquier caso exepcional
-    indice_fila_nombres_columnas <- indice_fila_nombres_columnas - 2
-    # Iteramos hasta que hayan coincidencias en al menos el 80%
-    while ( mean(nombres_columnas == names(tabla_prueba), na.rm = TRUE) < 0.8 & indice_fila_nombres_columnas <= 20 ) {
-      # Incrementamos el índice de la fila para continuar la prueba
-      indice_fila_nombres_columnas <- indice_fila_nombres_columnas + 1
-      # Reimportamos la tabla de prueba para verificar la correcta asignación de los nombres de las columnas en sus 20 primeras filas
-      tabla_prueba <- suppressMessages(readxl::read_excel(ruta_libro, sheet = nombre_hoja, col_names = TRUE, skip = indice_fila_nombres_columnas, n_max = 20))
-    }
-  }
+  
+  nombres_columnas_optimo <- nombresColumnasOptimo(ruta_libro, nombre_hoja, tabla_prueba)
+  
   # Inicializamos la variable para almacenar la advertencias
   advertencias <- NULL
+  
+  indice_fila_nombres_columnas <- nombres_columnas_optimo$fila
+  
   # Volvemos a importar la hoja de cálculo pero especificando la fija de inicio, para que se reconozca el tipo de dato y nombre de cada columna
   tabla <-
+    nombres_columnas_optimo$tabla %>%
     # Usamos withCallingHandlers() para capturar las advertencias generadas durante la ejecución del código y almacenarlas en una variable
     withCallingHandlers(
       # Importamos únicamente la tabla de datos contenida en la hoja especificada, saltando las primeras filas
@@ -1910,35 +1940,9 @@ hojaToTablaBoletinesFinancierosSB <- function(ruta_libro, nombre_hoja, fecha_cor
         invokeRestart("muffleWarning")
       }
     )
-  # Agregamos las advertencias como un atributo de la tabla
   attr(tabla, "advertencias") <- advertencias
-  # Agregamos la columna con la fecha del "Boletín Financiero mensual"
-  tabla_modificada <-
-    tabla %>%
-    # Eliminamos las columnas cuyo nombre contengan caracteres alfabéticos
-    select( -matches("^[^[:alpha:]]+$", .) ) %>%
-    # Eliminamos las filas que contienen únicamente valores NA
-    filter( !if_all(everything(), is.na) ) %>%
-    # Empleamos la función creada para modificar los nombres de las columnas según un catálogo por defecto
-    modificarNombreColumnaSB(tabla = ., precision = 0.85) %>%
-    # Modificamos la columna CODIGO a texto
-    mutate(CODIGO = as.character(CODIGO)) %>%
-    # Modificamos la columna CUENTA a texto
-    mutate(CUENTA = as.character(CUENTA)) %>%
-    # Modificamos el resto de columnas a numéricas
-    mutate_at(vars(-CODIGO, -CUENTA), as.numeric) %>%
-    # Eliminamos todas las filas donde el valor en las columnas "CODIGO" y "CUENTA" es NA
-    filter( !(is.na(CODIGO) & is.na(CUENTA)) ) %>%
-    # Eliminamos las filas donde todas las columnas son NA excepto CUENTA
-    filter( !if_all(-CUENTA, is.na) ) %>%
-    # Eliminamos las filas donde la columna CODIGO tenga letras mientras todas las demás columnas son NA
-    filter( !(grepl("[[:alpha:]]+",CODIGO) & if_all(-CODIGO, is.na)) ) %>%
-    # Agregamos la columna con la fechas de corte
-    mutate(`FECHA` = rep(fecha_corte)) %>%
-    # Movemos la columna FECHA al inicio de la tabla
-    select(`FECHA`, everything())
-  # Agregamos metadatos como atributo de la tabla
-  #attr(tabla, "fecha_creacion") <- Sys.Date()
+  
+  tabla_modificada <- modificarTablaSB(tabla,fecha_corte)
   
   return(tabla_modificada)
 }
@@ -1989,58 +1993,32 @@ compilarHojasBalanceFinancieroSB <- function(ruta_directorio = NULL) {
   # Limpiamos la barra de progreso
   barraProgresoReinicio()
   # Inicializamos la lista de las tablas concatenadas de BALANCE y PYG
-  lista_tablas_BAL_PYG_concatenadas <- list()
+  lista_tablas_BAL_PYG_fundidas <- list()
   # Definimos el bucle de ejecución
   for ( ruta_libro in rutas_libros_seleccionados ) {
-    # Importamos las 20 primeras filas de la hoja BALANCE para identificar la fecha de corte
     hoja <-
       suppressMessages(
         readxl::read_excel(ruta_libro, sheet = "BALANCE", n_max = 20))
-    # Identificamos la fecha de corte
     fecha_corte <- analisisDifusoNLPFechaCorte(hoja)
-    # Extraemos la tabla de BALANCE
     tabla_BAL <-
       hojaToTablaBoletinesFinancierosSB(ruta_libro, "BALANCE", fecha_corte)
-    # Extraemos la tabla de PYG
     tabla_PYG <-
       hojaToTablaBoletinesFinancierosSB(ruta_libro, "PYG", fecha_corte)
-    # Definimos el nombre de para cada tabla
     nombre_tabla <- basename(ruta_libro)
-    # Asignamos la tabla concatenada de BALANCE y PYG a un elemento de la lista de tablas
-    lista_tablas_BAL_PYG_concatenadas[[nombre_tabla]] <-
-      dplyr::bind_rows(tabla_BAL,tabla_PYG)
-    # Ejecutamos el código para la barra de progreso
+    lista_tablas_BAL_PYG_fundidas[[nombre_tabla]] <-
+      dplyr::bind_rows(tabla_BAL,tabla_PYG) %>%
+      reshape2::melt(.,
+                     id.vars = colnames(.)[1:3],
+                     variable.name = "RAZON_SOCIAL",
+                     value.name = "VALOR")
     barraProgreso(rutas_libros_seleccionados)
-    # Mostramos la ruta del archivo en proceso
     cat("\033[1;32mImportando y procesando el archivo:\033[0m",
         "[", normalizePath(ruta_libro), "]\n")
   }
-  # Concatenamos todas las tablas de la lista generada
-  tabla_BAL_PYG <- dplyr::bind_rows(lista_tablas_BAL_PYG_concatenadas)
-  # Asignamos el registro completo de advertencias (warnings) generadas al convertir a tabla las hojas de cálculo
-  registro_advertencias <-
-    sapply(seq_along(lista_tablas_BAL_PYG_concatenadas),
-           function(k) attr(lista_tablas_BAL_PYG_concatenadas[[k]],"advertencias"))
-  # Recuperamos los nombres de cada archivo para el registro de advertencias
-  names(registro_advertencias) <- names(lista_tablas_BAL_PYG_concatenadas)
-  # Asignamos la información de las advertencias a un data frame
-  reporte_consolidacion_BAL_PYG <-
-    data.frame(
-      Archivo = names(unlist(registro_advertencias)),
-      Advertencia = unname(unlist(registro_advertencias)))
-  # Exportamos el reporte con el registro de las advertencias
-  exportarReporteTabla(
-    reporte_consolidacion_BAL_PYG,
-    paste("Reporte Advertencias en Consolidación Balances Financieros SB",
-          basename(ruta_directorio)))
-  # Fundimos (melting) las tablas
-  tabla_BAL_PYG_fundida <-
-    reshape2::melt(tabla_BAL_PYG,
-                   id.vars = colnames(tabla_BAL_PYG)[1:3],
-                   variable.name = "RAZON_SOCIAL",
-                   value.name = "VALOR")
   
-  return(tabla_BAL_PYG_fundida)
+  tabla_BAL_PYG <- dplyr::bind_rows(lista_tablas_BAL_PYG_fundidas)
+  
+  return(tabla_BAL_PYG)
 }
 
 agregarRUCenSB <- function(tabla, ruta_catalogo = NULL) {

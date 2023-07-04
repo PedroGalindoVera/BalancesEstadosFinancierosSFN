@@ -1,4 +1,17 @@
-
+modificarNombreColumnaSB_v2 <- function(tabla) {
+  
+  nombres_columnas_rectificados <-
+    tabla %>%
+    colnames() %>%
+    toupper() %>%
+    chartr("[ÁÉÍÓÚ]", "[AEIOU]", .) %>%
+    gsub(" {2,}","",.) %>%
+    gsub(" $","",.)
+  
+  colnames(tabla) <- nombres_columnas_rectificados
+  
+  return(tabla)
+}
 
 hojaToTablaBoletinesFinancierosSB_v2 <- function(ruta_libro, nombre_hoja, fecha_corte = NULL) {
   
@@ -37,14 +50,11 @@ hojaToTablaBoletinesFinancierosSB_v2 <- function(ruta_libro, nombre_hoja, fecha_
       }
     )
   attr(tabla, "advertencias") <- advertencias
-  colnames(tabla) <- 
-    tabla %>% colnames() %>% toupper() %>%
-    chartr("[ÁÉÍÓÚ]", "[AEIOU]", .) %>% unique() %>%
-    gsub(" {2,}","",.) %>%
-    gsub(" $","",.)
+  
   tabla_modificada <-
-    tabla %>%
-    select( -matches("^[^[:alpha:]]+$", .) ) %>%
+    tabla #%>%
+    #modificarNombreColumnaSB_v2() %>%
+    #select( -matches("^[^[:alpha:]]+$", .) ) %>%
     # mutate(
     #   CODIGO = as.character(CODIGO),
     #   CUENTA = as.character(CUENTA)) %>%
@@ -54,8 +64,8 @@ hojaToTablaBoletinesFinancierosSB_v2 <- function(ruta_libro, nombre_hoja, fecha_
     # filter( !(grepl("[[:alpha:]]+",CODIGO) & if_all(-CODIGO, is.na)) ) %>%
     # filter( !(grepl("[[:alpha:]]+",CODIGO) & grepl("[[:alpha:]]+",CUENTA) & if_all(-c(CODIGO,CUENTA), is.na)) ) %>%
     # mutate_at(-c(CODIGO, CUENTA), as.numeric) %>%
-    mutate(`FECHA` = rep(fecha_corte)) %>%
-    select(FECHA, everything())
+    # mutate(`FECHA` = rep(fecha_corte)) %>%
+    # select(FECHA, everything())
   
   return(tabla_modificada)
 }
@@ -88,7 +98,7 @@ listarHojasBalanceFinancieroSB <- function(ruta_directorio = NULL) {
   barraProgresoReinicio()
   lista_tablas_BAL_concatenadas <- list()
   lista_tablas_PYG_concatenadas <- list()
-  for ( ruta_libro in rutas_libros_seleccionados ) {
+  for ( ruta_libro in rutas_libros_seleccionados[1:2] ) {
     hoja <-
       suppressMessages(
         readxl::read_excel(ruta_libro, sheet = "BALANCE", n_max = 20))
@@ -105,51 +115,53 @@ listarHojasBalanceFinancieroSB <- function(ruta_directorio = NULL) {
         "[", normalizePath(ruta_libro), "]\n")
   }
   
-  tabla_BAL_PYG <- dplyr::bind_rows(lista_tablas_BAL_PYG_concatenadas)
-  registro_advertencias <-
-    sapply(seq_along(lista_tablas_BAL_PYG_concatenadas),
-           function(k) attr(lista_tablas_BAL_PYG_concatenadas[[k]],"advertencias"))
-  names(registro_advertencias) <- names(lista_tablas_BAL_PYG_concatenadas)
-  reporte_consolidacion_BAL_PYG <-
-    data.frame(
-      Archivo = names(unlist(registro_advertencias)),
-      Advertencia = unname(unlist(registro_advertencias)))
-  exportarReporteTabla(
-    reporte_consolidacion_BAL_PYG,
-    paste("Reporte Advertencias en Consolidación Balances Financieros SB",
-          basename(ruta_directorio)))
-  tabla_BAL_PYG_fundida <-
-    reshape2::melt(tabla_BAL_PYG,
-                   id.vars = colnames(tabla_BAL_PYG)[1:3],
-                   variable.name = "RAZON_SOCIAL",
-                   value.name = "VALOR")
-  
-  return(tabla_BAL_PYG_fundida)
 }
 
 # ----
-lista_bancos_privados <- c(lista_tablas_BAL_concatenadas,lista_tablas_PYG_concatenadas)
-indices_lista <- length(lista_bancos_privados)
-nombres_bancos_privados <- sapply(seq_len(indices_lista), function(k)
-  names(lista_bancos_privados[[k]])) %>% unlist() %>% unique() %>% sort()
+lista_bancos <- c(lista_tablas_BAL_concatenadas,lista_tablas_PYG_concatenadas)
+indices_lista <- length(lista_bancos)
+columnas <- sapply(seq_len(indices_lista), function(k)
+  names(lista_bancos[[k]])) %>% unlist() %>% unique() %>% sort()
 
-indice_nombres_columnas_sin_sentido <- grep("^[^[:alpha:]]+$", nombres_bancos_privados)
+indice_nombres_columnas_sin_sentido <- grep("^[^[:alpha:]]+$", nombres_bancos)
 
-nombres_bancos_privados[indice_nombres_columnas_sin_sentido]
+columnas[indice_nombres_columnas_sin_sentido]
 
-bancos <- nombres_bancos_privados[-indice_nombres_columnas_sin_sentido]
+columnas_validas <- columnas[-indice_nombres_columnas_sin_sentido]
 
-bancos_depurados <- 
-  bancos %>% toupper() %>%
+columnas_depuradas <- 
+  columnas_validas %>% toupper() %>%
   chartr("[ÁÉÍÓÚ]", "[AEIOU]", .) %>% unique() %>%
   #.[!grepl("CODIGO|CUENTA|FECHA", .)] %>%
   gsub(" {2,}","",.) %>%
   gsub(" $","",.)
 
-similitud <- stringdist::stringsimmatrix(bancos_depurados,bancos_depurados, method = "cosine")
-rownames(similitud) <- bancos_depurados
-colnames(similitud) <- bancos_depurados
+library(readxl)
+Catalogo_Operadores <- read_excel("data/Catalogos/Catalogo Operadores.xlsx")
+View(Catalogo_Operadores)
 
+prueba <- data.frame(columnas_depuradas)
+indice_correspondencia <- match(prueba$columnas_depuradas, Catalogo_Operadores$Operadora)
+prueba$RUC <- Catalogo_Operadores$RUC[indice_correspondencia]
 
-write.xlsx(data.frame(bancos_depurados),"catalogo.xlsx")
+library(openxlsx)
+write.xlsx(data.frame(prueba),"catalogo.xlsx")
+
+# ----
+lista_bancos[[1]] %>% colnames()
+
+lista_bancos[[1]] %>%
+  modificarNombreColumnaSB_v2() %>%
+  select( -matches("^[^[:alpha:]]+$", .) ) %>%
+  mutate(
+    CODIGO = as.character(CODIGO),
+    CUENTA = as.character(CUENTA)) %>%
+  mutate_at( vars(-FECHA, -CODIGO, -CUENTA), as.numeric) %>%
+  filter( ! if_all(-CUENTA, is.na) ) %>%
+  #filter( ! is.na(CODIGO) & ! is.na(CUENTA) ) %>%
+  # filter( !(grepl("[[:alpha:]]+",CODIGO) & if_all(-CODIGO, is.na)) ) %>%
+  # filter( !(grepl("[[:alpha:]]+",CODIGO) & grepl("[[:alpha:]]+",CUENTA) & if_all(-c(CODIGO,CUENTA), is.na)) ) %>%
+  # mutate_at(-c(CODIGO, CUENTA), as.numeric) %>%
+  View()
+
 
