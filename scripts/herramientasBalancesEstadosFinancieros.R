@@ -1840,43 +1840,13 @@ hojaToTablaBoletinesFinancierosSB <- function(ruta_libro, nombre_hoja, fecha_cor
   # Esta función permite extraer la tabla de datos contenida en un hoja de cálculo correspondiente a los "Boletines Financieros mensuales" de la SB
   
   # ARGUMENTOS:
-  # ruta_libro <- "data/Fuente/SB/Boletines Financieros Mensuales/Bancos Privados/2023/FINANCIERO MENSUAL BANCA PRIVADA 2023_02.xlsx"
+  # ruta_libro <- "data/Fuente/SB/PRIVADA/2023/FINANCIERO MENSUAL BANCA PRIVADA 2023_02.xlsx"
   # nombre_hoja <- "BALANCE"
   # fecha_corte <- "2023-02-29"
   # EJEMPLO: tabla <- hojaToTablaBoletinesFinancierosSB(ruta_libro, nombre_hoja, fecha_corte)
   
   requerirPaquetes("dplyr","readxl")
   
-  nombreHojaSimilar <- function(ruta_libro, nombre_hoja_buscado) {
-    
-    # Determina la hoja en un libro de excel que tiene mayor similitud a la hoja buscada
-    
-    requerirPaquetes("readxl","stringdist")
-    
-    nombres_hojas <- readxl::excel_sheets(ruta_libro)
-    distancia <- stringdist::stringsimmatrix(nombre_hoja_buscado, nombres_hojas, method = "jw")
-    indice_hoja_similar <- which.max(distancia)
-    nombre_hoja_similar <- nombres_hojas[indice_hoja_similar]
-    return(nombre_hoja_similar)
-  }
-  nombresColumnasOptimo <- function(ruta_libro, nombre_hoja, tabla_semilla) {
-    indice_fila_nombres_columnas <- indicePrimeraFilDecimalTabla(tabla_semilla) - 1
-    nombres_columnas <- unname(unlist(tabla_semilla[indice_fila_nombres_columnas,]))
-    tabla_prueba <- suppressMessages(readxl::read_excel(ruta_libro, sheet = nombre_hoja, col_names = TRUE, skip = indice_fila_nombres_columnas, n_max = 20))
-    # Verificamos si coinciden adecuadamente los nombres de las columnas
-    if ( mean(nombres_columnas == names(tabla_prueba), na.rm = TRUE) < 0.8 ) {
-      # Retrocedemos un índice en las filas previo a iterear para incluir cualquier caso exepcional
-      indice_fila_nombres_columnas <- indice_fila_nombres_columnas - 2
-      # Iteramos hasta que hayan coincidencias en al menos el 80%
-      while ( mean(nombres_columnas == names(tabla_prueba), na.rm = TRUE) < 0.8 & indice_fila_nombres_columnas <= 20 ) {
-        # Incrementamos el índice de la fila para continuar la prueba
-        indice_fila_nombres_columnas <- indice_fila_nombres_columnas + 1
-        # Reimportamos la tabla de prueba para verificar la correcta asignación de los nombres de las columnas en sus 20 primeras filas
-        tabla_prueba <- suppressMessages(readxl::read_excel(ruta_libro, sheet = nombre_hoja, col_names = TRUE, skip = indice_fila_nombres_columnas, n_max = 20))
-      }
-    }
-    return( list(fila = indice_fila_nombres_columnas, tabla = tabla_prueba) )
-  }
   estandarizarNombreColumna <- function(tabla) {
     nombres_columnas_estandarizados <-
       tabla %>%
@@ -1889,7 +1859,8 @@ hojaToTablaBoletinesFinancierosSB <- function(ruta_libro, nombre_hoja, fecha_cor
     return(tabla)
   }
   modificarTablaSB <- function(tabla, fecha_corte) {
-    tabla %>%
+    tabla_modificada <-
+      tabla %>%
       estandarizarNombreColumna() %>%
       select( -matches("^[^[:alpha:]]+$", .) ) %>%
       filter_all( any_vars( ! is.na(.) ) ) %>%
@@ -1900,30 +1871,36 @@ hojaToTablaBoletinesFinancierosSB <- function(ruta_libro, nombre_hoja, fecha_cor
       filter( ! is.na(CODIGO) & ! is.na(CUENTA) ) %>%
       mutate( FECHA = fecha_corte ) %>%
       select( FECHA, everything() )
-    return(tabla)
+    return(tabla_modificada)
   }
-  
+
   nombre_hoja <- nombreHojaSimilar(ruta_libro, nombre_hoja)
-  
-  tabla_semilla <- suppressMessages(readxl::read_excel(ruta_libro, sheet = nombre_hoja, col_names = FALSE, n_max = 30))
-  
+  hoja <- suppressMessages(readxl::read_excel(ruta_libro, sheet = nombre_hoja, col_names = FALSE, n_max = 30))
   fecha_corte <-
     if ( is.null(fecha_corte) ) {
-      analisisDifusoNLPFechaCorte(tabla_prueba)
+      # Determinamos la fecha más probable contenida en la hoja importada
+      analisisDifusoNLPFechaCorte(hoja)
     } else {
       fecha_corte
     }
-  
-  nombres_columnas_optimo <- nombresColumnasOptimo(ruta_libro, nombre_hoja, tabla_prueba)
-  
-  # Inicializamos la variable para almacenar la advertencias
+  indice_fila_nombres_columnas <- indicePrimeraFilDecimalTabla(hoja) - 1
+  nombres_columnas <- unname(unlist(hoja[indice_fila_nombres_columnas,]))
+  tabla_prueba <- suppressMessages(readxl::read_excel(ruta_libro, sheet = nombre_hoja, col_names = TRUE, skip = indice_fila_nombres_columnas, n_max = 20))
+  # Verificamos si coinciden adecuadamente los nombres de las columnas
+  if ( mean(nombres_columnas == names(tabla_prueba), na.rm = TRUE) < 0.8 ) {
+    # Retrocedemos un índice en las filas previo a iterear para incluir cualquier caso exepcional
+    indice_fila_nombres_columnas <- indice_fila_nombres_columnas - 2
+    # Iteramos hasta que hayan coincidencias en al menos el 80%
+    while ( mean(nombres_columnas == names(tabla_prueba), na.rm = TRUE) < 0.8 & indice_fila_nombres_columnas <= 20 ) {
+      # Incrementamos el índice de la fila para continuar la prueba
+      indice_fila_nombres_columnas <- indice_fila_nombres_columnas + 1
+      # Reimportamos la tabla de prueba para verificar la correcta asignación de los nombres de las columnas en sus 20 primeras filas
+      tabla_prueba <- suppressMessages(readxl::read_excel(ruta_libro, sheet = nombre_hoja, col_names = TRUE, skip = indice_fila_nombres_columnas, n_max = 20))
+    }
+  }
   advertencias <- NULL
-  
-  indice_fila_nombres_columnas <- nombres_columnas_optimo$fila
-  
   # Volvemos a importar la hoja de cálculo pero especificando la fija de inicio, para que se reconozca el tipo de dato y nombre de cada columna
   tabla <-
-    nombres_columnas_optimo$tabla %>%
     # Usamos withCallingHandlers() para capturar las advertencias generadas durante la ejecución del código y almacenarlas en una variable
     withCallingHandlers(
       # Importamos únicamente la tabla de datos contenida en la hoja especificada, saltando las primeras filas
@@ -1940,9 +1917,10 @@ hojaToTablaBoletinesFinancierosSB <- function(ruta_libro, nombre_hoja, fecha_cor
         invokeRestart("muffleWarning")
       }
     )
+  # Agregamos las advertencias como un atributo de la tabla
   attr(tabla, "advertencias") <- advertencias
-  
-  tabla_modificada <- modificarTablaSB(tabla,fecha_corte)
+  # Agregamos la columna con la fecha del "Boletín Financiero mensual"
+  tabla_modificada <- modificarTablaSB(tabla, fecha_corte)
   
   return(tabla_modificada)
 }
@@ -2016,7 +1994,9 @@ compilarHojasBalanceFinancieroSB <- function(ruta_directorio = NULL) {
         "[", normalizePath(ruta_libro), "]\n")
   }
   
-  tabla_BAL_PYG <- dplyr::bind_rows(lista_tablas_BAL_PYG_fundidas)
+  tabla_BAL_PYG <-
+    dplyr::bind_rows(lista_tablas_BAL_PYG_fundidas) %>%
+    dplyr::mutate(RAZON_SOCIAL = as.character(RAZON_SOCIAL))
   
   return(tabla_BAL_PYG)
 }
@@ -2091,7 +2071,7 @@ crearBalancesFinancierosSB <- function() {
     agregarRUCenSB() %>%
     dplyr::select(FECHA, SEGMENTO, RUC, RAZON_SOCIAL, CODIGO, CUENTA, VALOR)
   
-  # ETAPA 5: Estandarizacion de la tabla concatenada ----
+  # ETAPA 5: Estandarización de la tabla concatenada ----
   cat("\n\nEstandarizando tabla concatenada....\n")
   
   correcionCaracteresSB <- function(texto_vector) {
