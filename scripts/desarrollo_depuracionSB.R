@@ -1,16 +1,16 @@
-catalogo_CODIGO_SB <- consolidada %>% distinct(CODIGO, CUENTA) %>% 
-  mutate( CODIGO = as.integer(CODIGO) ) %>%
-  filter( CODIGO > 0 )
-
 SB <- consolidada %>%
   filter( ! grepl("-",CODIGO) ) %>% # consolidada %>% filter( grepl("-",CODIGO) ) %>% View()
   filter( ! grepl("\\+",CODIGO) ) %>% # consolidada %>% filter( grepl("\\+",CODIGO) ) %>% View()
   filter( ! grepl("^0$",CODIGO) ) %>%  # consolidada %>% filter( grepl("^0$",CODIGO) ) %>% View()
-  filter( ! ( CODIGO == "ACTIVO" & CUENTA == "ACTIVO" & is.na(VALOR) ) ) %>% # consolidada %>% filter( CODIGO == "ACTIVO" & CUENTA == "ACTIVO" & is.na(VALOR) ) %>% View()
-  filter( ! grepl("^[[:alpha:]]$",CODIGO) ) %>% # consolidada %>% filter( grepl("^[[:alpha:]]$",CODIGO) ) %>% View()
-  filter( ! grepl("PRUEBA DE CUADRE",CODIGO) ) %>% # consolidada %>% filter( grepl("PRUEBA DE CUADRE",CODIGO) ) %>% View()
+  #filter( ! ( CODIGO == "ACTIVO" & CUENTA == "ACTIVO" & is.na(VALOR) ) ) %>% # consolidada %>% filter( CODIGO == "ACTIVO" & CUENTA == "ACTIVO" & is.na(VALOR) ) %>% View()
+  #filter( ! grepl("^[[:alpha:]]$",CODIGO) ) %>% # consolidada %>% filter( grepl("^[[:alpha:]]$",CODIGO) ) %>% View()
+  #filter( ! grepl("PRUEBA DE CUADRE",CODIGO) ) %>% # consolidada %>% filter( grepl("PRUEBA DE CUADRE",CODIGO) ) %>% View()
   filter( ! grepl("[[:alpha:]]",CODIGO) ) # consolidada %>% filter( grepl("[[:alpha:]]",CODIGO) ) %>% View()
-  
+
+catalogo_CODIGO_SB <- consolidada %>% distinct(CODIGO, CUENTA) %>% 
+  mutate( CODIGO = as.integer(CODIGO) ) %>%
+  filter( CODIGO > 0 )
+
 indices <- match(SB$CUENTA, catalogo_CODIGO_SB$CUENTA)
 SB$CODIGO[is.na(SB$CODIGO)] <-
   catalogo_CODIGO_SB$CODIGO[indices][is.na(SB$CODIGO)]

@@ -60,6 +60,54 @@ crearDirectorio <- function(nueva_ruta) {
   }
 }
 
+exportarProyecto <- function() {
+  crearDirectorioNormalizado <- function(ruta_directorio) {
+    ruta_directorio_normalizada <- normalizePath(ruta_directorio)
+    if (!dir.exists(ruta_directorio_normalizada)) {
+      dir.create(ruta_directorio_normalizada, recursive = TRUE)
+      cat("\nSe creo la carpeta: [", basename(ruta_directorio_normalizada), "]",
+          "con la ruta: [", ruta_directorio_normalizada, "].\n")
+    }
+  }
+  copiarProyecto <- function(ruta_destino) {
+    directorio_proyecto <- "DESARROLLO\\BalancesEstadosFinacierosSFN"
+    ruta_directorio_proyecto <-
+      paste(ruta_directorio_compartido, directorio_proyecto, sep = "\\")
+    crearDirectorioNormalizado(ruta_directorio_proyecto)
+    ruta_directorio_scripts <-
+      paste(ruta_directorio_proyecto, "scripts", sep = "\\")
+    crearDirectorioNormalizado(ruta_directorio_scripts)
+    ruta_directorio_data <-
+      paste(ruta_directorio_proyecto, "data", sep = "\\")
+    crearDirectorioNormalizado(ruta_directorio_data)
+    archivos_a_copiar_en_scripts <- c(
+      "scripts/herramientasBalancesEstadosFinancieros.R",
+      "scripts/usoCreacionBalancesEstadosFinancieros.R")
+    scripts <- file.copy(
+      from = archivos_a_copiar_en_scripts,
+      to = ruta_directorio_scripts,
+      overwrite = TRUE)
+    data_Catalogos <- file.copy(
+      from = "data/Catalogos",
+      to = ruta_directorio_data,
+      recursive = TRUE,
+      overwrite = TRUE)
+    directorios_a_copiar_en_proyecto <-
+      c("html", "installers", grep("\\.Rproj$",list.files(), value = TRUE))
+    varios <- file.copy(
+      from = directorios_a_copiar_en_proyecto,
+      to = ruta_directorio_proyecto,
+      recursive = TRUE,
+      overwrite = TRUE)
+    return(all(c(scripts, data_Catalogos, varios)))
+  }
+  ruta_directorio_compartido <- "\\\\192.168.10.244\\inteligencia"
+  if ( dir.exists(ruta_directorio_compartido) ) {
+    copia <- copiarProyecto(ruta_directorio_compartido)
+  }
+  return(copia)
+}
+
 exportarReporteTabla <- function(dataFrame, nombre_archivo, ruta_directorio = NULL) {
   requerirPaquetes("openxlsx")
   crear_libro_trabajo <- openxlsx::createWorkbook()
@@ -113,54 +161,6 @@ exportarResultadosCSV <- function(tabla, nombre_archivo, ruta_directorio = NULL)
     beepr::beep(8)
     cat("\nSe ha creado el archivo con la ruta: [", ruta_archivo_normalizada, "]\n")
   }
-}
-
-exportarProyecto <- function() {
-  crearDirectorioNormalizado <- function(ruta_directorio) {
-    ruta_directorio_normalizada <- normalizePath(ruta_directorio)
-    if (!dir.exists(ruta_directorio_normalizada)) {
-      dir.create(ruta_directorio_normalizada, recursive = TRUE)
-      cat("\nSe creo la carpeta: [", basename(ruta_directorio_normalizada), "]",
-          "con la ruta: [", ruta_directorio_normalizada, "].\n")
-    }
-  }
-  copiarProyecto <- function(ruta_destino) {
-    directorio_proyecto <- "DESARROLLO\\BalancesEstadosFinacierosSFN"
-    ruta_directorio_proyecto <-
-      paste(ruta_directorio_compartido, directorio_proyecto, sep = "\\")
-    crearDirectorioNormalizado(ruta_directorio_proyecto)
-    ruta_directorio_scripts <-
-      paste(ruta_directorio_proyecto, "scripts", sep = "\\")
-    crearDirectorioNormalizado(ruta_directorio_scripts)
-    ruta_directorio_data <-
-      paste(ruta_directorio_proyecto, "data", sep = "\\")
-    crearDirectorioNormalizado(ruta_directorio_data)
-    archivos_a_copiar_en_scripts <- c(
-      "scripts/herramientasBalancesEstadosFinancieros.R",
-      "scripts/usoCreacionBalancesEstadosFinancieros.R")
-    scripts <- file.copy(
-      from = archivos_a_copiar_en_scripts,
-      to = ruta_directorio_scripts,
-      overwrite = TRUE)
-    data_Catalogos <- file.copy(
-      from = "data/Catalogos",
-      to = ruta_directorio_data,
-      recursive = TRUE,
-      overwrite = TRUE)
-    directorios_a_copiar_en_proyecto <-
-      c("html", "installers", grep("\\.Rproj$",list.files(), value = TRUE))
-    varios <- file.copy(
-      from = directorios_a_copiar_en_proyecto,
-      to = ruta_directorio_proyecto,
-      recursive = TRUE,
-      overwrite = TRUE)
-    return(all(c(scripts, data_Catalogos, varios)))
-  }
-  ruta_directorio_compartido <- "\\\\192.168.10.244\\inteligencia"
-  if ( dir.exists(ruta_directorio_compartido) ) {
-    copia <- copiarProyecto(ruta_directorio_compartido)
-  }
-  return(copia)
 }
 
 formatoTiempoHMS <- function(tiempo) {
@@ -239,150 +239,6 @@ barraProgresoReinicio <- function() {
     rm(marcador_inicio_cronometro, envir = .GlobalEnv)
   if (exists("contador_progreso"))
     rm(contador_progreso, envir = .GlobalEnv)
-}
-
-descomprimirArchivosDirectorioZip <- function(origen, destino) {
-  
-  # EJEMPLO:
-  # origen <- "data/Descargas/SEPS/Bases de Datos"
-  # destino <- "data/Fuente/SEPS/Bases de Datos"
-  # descomprimirArchivosDirectorioZip(origen, destino)
-  
-  requerirPaquetes("utils")
-  descompresionZip <- function(ruta_origen, directorio_destino) {
-    #if ( !dir.exists(directorio_destino) ) 
-    crearDirectorio(directorio_destino)
-    tryCatch(
-      {
-        utils::unzip(ruta_origen, exdir = directorio_destino)
-      },
-      error = function(e) {
-        message("Ocurrió un error al descomprimir el archivo zip: ", e$message,
-                "\nEmpleando 7-Zip para completar la descompresión...")
-        # Código para manejar el error, utilizando una herramienta externa para descomprimir el archivo zip
-        ruta_origen_normalizado <- normalizePath(ruta_origen)
-        ruta_destino_normalizado <- normalizePath(directorio_destino)
-        # Descompresión externa de archivos
-        descompresion7zip(ruta_origen_normalizado, ruta_destino_normalizado)
-      }
-    )
-  }
-  archivoZip <- function() {
-    #archivos_contenidos <- utils::unzip(ruta_origen, list = TRUE)$Name
-    hay_contenidos_zip <- any(grepl("\\.zip$", archivos_contenidos))
-    if ( hay_contenidos_zip ) {
-      directorio_destino_temporal <-
-        dirname(gsub("Descargas","Temporal",ruta_origen))
-      #if ( !dir.exists(directorio_destino_temporal) )
-      crearDirectorio(directorio_destino_temporal)
-      descompresionZip(ruta_origen, directorio_destino_temporal)
-      ruta_comprimido_temporal <-
-        file.path(directorio_destino_temporal, archivos_contenidos)
-      directorio_origen_temporal <- directorio_destino_temporal
-      descomprimirArchivosDirectorioZip(origen = directorio_origen_temporal,
-                                     destino = directorio_destino)
-      unlink(ruta_comprimido_temporal, recursive = TRUE)
-      #file.remove(ruta_comprimido_temporal)
-    } else {
-      descompresionZip(ruta_origen, directorio_destino)
-    }
-  }
-  copiarArchivo <- function() {
-    ruta_verificacion <- file.path(destino, archivo)
-    if ( !file.exists(ruta_verificacion) ) {
-      cat("\nCopiando el archivo: [", normalizePath(ruta_origen),"] ...\n")
-      file.copy( ruta_origen, ruta_verificacion )
-    }
-  }
-  decidirAccion <- function() {
-    tiene_extension_zip <- grepl("\\.zip$", ruta_origen)
-    if ( tiene_extension_zip ) {
-      archivoZip()
-    } else {
-      copiarArchivo()
-    }
-  }
-  
-  archivos_origen <- list.files(origen, recursive = TRUE)
-  # Elegimos únicamente los archivos con extensión zip
-  archivos <- grep("\\.zip$", archivos_origen, value = TRUE)
-  for ( archivo in archivos ) {
-    ruta_origen <- file.path( origen, archivo )
-    # Establecer el directorio de destino para los archivos Descomprimidos
-    va_a_data_fuente_SB <-
-      grepl("(?=.*data)(?=.*Fuente)(?=.*SB)", destino, perl = TRUE)
-    if ( va_a_data_fuente_SB ) {
-      directorio_destino <-
-        dirname(gsub("Descargas|Temporal","Fuente",ruta_origen))
-    } else {
-      nombre_archivo_zip <- gsub("\\.zip$","",basename(ruta_origen))
-      directorio_destino <- file.path(destino, nombre_archivo_zip)
-    }
-    #if ( !dir.exists(directorio_destino) )
-    crearDirectorio(directorio_destino)
-    archivos_contenidos <-
-      utils::unzip(ruta_origen, list = TRUE)$Name
-    alguno_de_los_caracteres_no_es_utf8 <-
-      any(is.na(unlist(sapply(archivos_contenidos, utf8ToInt))))
-    if ( !alguno_de_los_caracteres_no_es_utf8 ) {
-      ruta_archivos_descomprimidos <-
-        file.path(directorio_destino, archivos_contenidos)
-      existe_archivo_descomprimido <-
-        all(file.exists(ruta_archivos_descomprimidos))
-    } else {
-      existe_archivo_descomprimido <- FALSE
-    }
-    if ( !existe_archivo_descomprimido ) {
-      decidirAccion()
-      barraProgreso(archivos)
-      cat("\033[1;32mDescomprimiendo el archivo:\033[0m [", normalizePath(ruta_origen), "]\n")
-    }
-  }
-  cat("\n")
-}
-
-eliminarArchivosZipEnDirectorio <- function(ruta_directorio) {
-  # EJEMPLO:
-  # ruta_directorio <- "data/Fuente/SB/Boletines Financieros Mensuales"
-  # eliminarArchivosZipEnDirectorio(ruta_directorio)
-  rutas_archivos <-
-    list.files(ruta_directorio, recursive = TRUE, full.names = TRUE)
-  rutas_zip_eliminar <- grep("\\.zip$", rutas_archivos, value = TRUE)
-  unlink(rutas_zip_eliminar, recursive = TRUE)
-}
-
-depurarDirectorioPorAnio <- function(directorio_principal) {
-  
-  # EJEMPLO:
-  # directorio_principal <- "data/Fuente/SB/Boletines Financieros Mensuales"
-  # depurarDirectorioPorAnio(directorio_principal)
-  
-  rutas_archivos <-
-    list.files(directorio_principal, recursive = TRUE, full.names = TRUE)
-  for ( ruta_archivo in rutas_archivos ) {
-    tiene_extension_zip <- grepl("\\.zip$", basename(ruta_archivo))
-    if ( tiene_extension_zip ) unlink(ruta_archivo, recursive = TRUE)
-    
-    partes_ruta <- unlist(strsplit(ruta_archivo, "/"))
-    directorio_archivo <- paste(partes_ruta[1:6], collapse = "/")
-    nombre_archivo <- tail(partes_ruta, 1)
-    ruta_corregida <- file.path(directorio_archivo, nombre_archivo)
-    
-    son_rutas_diferentes <- ruta_corregida != ruta_archivo
-    if ( son_rutas_diferentes & !tiene_extension_zip ) {
-      file.copy(from = ruta_archivo, to = directorio_archivo)
-      unlink(ruta_archivo, recursive = TRUE)
-    }
-    directorio_original <- dirname(ruta_archivo)
-    
-    es_directorio_vacio <-
-      length(list.files(directorio_original, recursive = TRUE)) == 0
-    if ( es_directorio_vacio ) unlink(directorio_original, recursive = TRUE)
-    
-    # tamanio_directorio_eliminar <- file.info(directorio_original)$size
-    # es_directorio_vacio <- tamanio_directorio_eliminar == 0
-    # if ( es_directorio_vacio ) unlink(directorio_original, recursive = TRUE)
-  }
 }
 
 analisisSimilitudCadenaCaracteres <- function(texto_vector, metodo = "lv",
@@ -912,29 +768,230 @@ generarCatalogosSEPS <- function(tabla_balance_financiero) {
   #return(catalogo)
 }
 
-# Descarga----
-
-analisisVinculosPaginaWebSEPS <- function() {
+frecuenciaEmpiricaRelativaOcurrenciaDecimalEnTexto <- function(cadena_texto) {
   
-  requerirPaquetes("dplyr","rvest")
+  # Esta función calcula la frecuencia relativa de la ocurrencia de la expresión de un número decimal en una columna.
   
-  link <- "https://estadisticas.seps.gob.ec/index.php/estadisticas-sfps/"
-  pagina <- rvest::read_html(link)
+  # cadena_texto: es un vector tipo char que puede contener diferentes tipos de información todos convertidos en carácteres.
   
-  # En el código original de la página se han identificado los nodos para las "Bases de Datos" como: `collapse_4`, `collapse_5`
-  div_BaseDatos <- pagina %>%
-    rvest::html_nodes("#collapse_4, #collapse_5")
-  # rvest::html_nodes(xpath = '//*[@id="collapse_4" or @id="collapse_5"]')
-  # Recuperamos los enlaces de descarga
-  links_BaseDatos <-
-    rvest::html_nodes(div_BaseDatos,"a") %>%
-    rvest::html_attr("href")
+  # Ejemplo: frecuenciaEmpiricaRelativaOcurrenciaDecimalEnTexto(c("a",1,3.14,Sys.Date())) devolverá 0.25 como la frecuencia relativa por le 3.14
   
-  cat("\n\033[1mEnlaces de descarga encontrados en la página:\033[0m [",link,"]\n")
-  print(links_BaseDatos)
+  # Determinamos expresiones regulares para excluir expresiones con puntos y solo admitir con números
+  expresion_regular_codigo <- "^[[:digit:]]{1,6}$"
+  # Determinamos expresiones regulares para identificar números con o sin decimales, positivos o negativos, con o sin notación científica
+  expresion_regular_numero <- "^[-]?[0-9]+([.,][0-9]+)?([Ee][-+]?[0-9]+)?$"
+  # Determinamos expresiones regulares para para el cero como palabra completa
+  expresion_regular_cero <- "^[0]?$"
+  # Determinamos la prueba lógica para números decimales excluyendo los enteros pero aceptando el cero y NA
+  prueba_numero_decimal <- 
+    ( ! grepl(expresion_regular_codigo, cadena_texto) & 
+        grepl(expresion_regular_numero, cadena_texto) ) |
+    grepl(expresion_regular_cero, cadena_texto) |
+    is.na(cadena_texto)
+  # Asumiendo distribución Poisson para cada caso, calculamos un estimador para la media que representa la tasa media de ocurrencia
+  frecuencia_relativa_ocurrencia <- mean(prueba_numero_decimal, na.rm = TRUE)
   
-  return(links_BaseDatos)
+  return(frecuencia_relativa_ocurrencia)
 }
+
+indicePrimeraFilDecimalTabla <- function(tabla) {
+  filas <- 1:nrow(tabla)
+  frecuencia_ocurrencia_decimal_filas <-
+    sapply(
+      filas,
+      function(fila) {
+        cadena_texto <- as.character(tabla[fila,])
+        frecuenciaEmpiricaRelativaOcurrenciaDecimalEnTexto(cadena_texto)
+      }
+    )
+  primera_fila_decimal <- which.min(frecuencia_ocurrencia_decimal_filas) + 1
+  return(primera_fila_decimal)
+}
+
+analisisDifusoNLPFechaCorte <- function(tabla) {
+  
+  # Esta función procesa un texto relacionado a un la fecha de corte de los "Balances Financieros" de SB y devuelve el date más cercano a fecha de corte.
+  
+  requerirPaquetes("lubridate","parsedate","stringdist")
+  
+  traductor_mes <- function(texto) {
+    
+    # Esta función modifica con la traducción al ingles correspondiente sean los nombres completos o las abreviaciones de los meses, para un posterior reconocimiento optimo de fecha
+    
+    texto_original <- tolower(texto)
+    # Creamos un diccionario para traducción y posterior reconocimiento optimo de fechas
+    meses <-
+      data.frame(
+        es = c("ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"),
+        #en = substr(strsplit(tolower(month.name), " "), 1, 3)
+        en = tolower(month.name)
+      )
+    # Definimos el patrón buscado en el texto
+    patron <- meses$es
+    # Definimos el texto de reemplazo
+    reemplazo <- meses$en
+    # Definimos los separadores admisibles para las palabras
+    separadores <- "[-,/, ]"
+    # Separamos cada palabra en sus letras componentes
+    palabras <- strsplit(texto_original, separadores)[[1]]
+    # palabras <- unlist(strsplit(texto_original, separadores))
+    # Elegimos únicamente las 3 primeros caracteres de cada palabra para obtener expresiones como: "ene"
+    palabras_abreviadas <- substr(palabras, 1, 3)
+    # Calculamos las similitudes entres las palabras abreviadas y el patrón de busqueda
+    similitudes <- stringdist::stringsimmatrix(palabras_abreviadas, patron, method = "jw")
+    # Se emplea una probabilidad de similitud del 90% para compensar el error por identidad con el máximo
+    #posiciones_max <- as.data.frame(which(similitudes >= 0.8*max(similitudes), arr.ind = TRUE))
+    # Buscamos los índices con las mayores coincidencias
+    posiciones_max <- as.data.frame(which(similitudes == max(similitudes), arr.ind = TRUE))
+    # Determinamos las abreviaciones similares
+    palabra_similar <- palabras[posiciones_max$row]
+    # Reemplazamos con la palabra completa las abreviaciones similares
+    reemplazo_similar <- reemplazo[posiciones_max$col]
+    # Modificamos uno a uno los nombres de los mes traducidos
+    texto_modificado <- texto_original
+    for ( k in seq_along(palabra_similar) ) {
+      texto_modificado <- gsub(palabra_similar[k], reemplazo_similar[k], texto_modificado)
+    }
+    return(texto_modificado)
+  }
+  prueba_anio <- function(texto) {
+    # Año actual a texto, para generar expresión regular de año, usan Sys.Date() y descomponiéndolo
+    anio_num <- year(Sys.Date())
+    anio_text <- strsplit(as.character(anio_num), split = "")[[1]]
+    # Establecemos una expresión regular que acepta 2000 hasta el año actual
+    expresion_regular_anio <- paste0("\\b(",anio_text[1],"[",0,"-",anio_text[2],"][",0,"-",anio_text[3],"][0-9])\\b")
+    # expresion_regular_anio <- "\\b(20[0-3][0-9])\\b$" # acepta desde 2000 hasta 2039
+    return(grepl(expresion_regular_anio, texto, ignore.case = TRUE))
+  }
+  prueba_mes <- function(texto) {
+    # Establecemos una expresión regular
+    expresion_regular_mes <- paste0(c("ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"), collapse = "|")
+    return(grepl(expresion_regular_mes, texto, ignore.case = TRUE))
+  }
+  prueba_dia <- function(texto) {
+    # Establecemos una expresión regular del día del mes
+    expresion_regular_dia <- "\\b([1-2]?[0-9]|3[0-1])\\b"
+    return(grepl(expresion_regular_dia, texto, ignore.case = TRUE))
+  }
+  formato_numerico_excel <- function(fecha) {
+    # Función para transformar a formato numérico de Excel una fecha date
+    # Fecha base de Excel
+    fecha_base_excel <- as.Date("1899-12-30")
+    return(as.numeric(difftime(as.Date(fecha), as.Date("1899-12-30"))))
+  }
+  prueba_fecha_excel <- function(texto) {
+    # Fecha de inicio de busqueda en formato numérico de Excel
+    fecha_num_excel_inicio <- formato_numerico_excel("2000-01-01")
+    # Fecha de inicio descompuesta en caracteres para formar expresión regular
+    fechaI <- strsplit(as.character(fecha_num_excel_inicio), split = "")[[1]]
+    # Fecha de actual en formato numérico de Excel para busqueda
+    fecha_num_excel_fin <- formato_numerico_excel(Sys.Date())
+    # Fecha de fin descompuesta en caracteres para formar expresión regular
+    fechaF <- strsplit(as.character(fecha_num_excel_fin), split = "")[[1]]
+    # Establecemos una expresión regular que acepte los formatos numéricos para fecha de Excel
+    expresion_regular_fecha_num_excel <-
+      paste0(
+        "^(",fechaI[1],"[",fechaI[2],"-9]","[",fechaI[3],"-9]","[",fechaI[4],"-9]","[",fechaI[5],"-9]|",
+        fechaF[1],"[0-9]{", length(fechaF)-1, "})"
+      )
+    return(grepl(expresion_regular_fecha_num_excel, texto))
+  }
+  prueba_fecha_date <- function(texto) {
+    # Establecemos una expresión regular que acepte variantes de formato fecha
+    expresion_regular_fecha_date <-
+      paste(c(
+        "\\b(20[0-9]{2}[-/][0-1][0-9][-/][0-3]?[0-9])\\b",
+        #"\\b(20[0-9]{2}[-/][[:alpha:]]{1,10}[-/][0-3]?[0-9])\\b",# NO USAR ALTERA EN EL CONDICIONAL
+        "\\b([0-3]?[0-9][-/][0-1][0-9][-/]20[0-9]{2})\\b" #,
+        #"\\b([0-3]?[0-9][-/][[:alpha:]]{1,10}[-/]20[0-9]{2})\\b"
+      ), collapse = "|"
+      )
+    return(grepl(expresion_regular_fecha_date, texto))
+  }
+  
+  # Empleamos la función indicePrimeraFilDecimalTabla() para identificar la primera fila decimal
+  indice_fila_nombres <- indicePrimeraFilDecimalTabla(tabla)
+  # Subtabla previa a los valores decimales, y a la fila de nombres de columnas, por eso se resta 2
+  subtabla <- tabla[1:(indice_fila_nombres-2),]
+  # Determinamos las coincidencias en la subtabla
+  coincidencias <-
+    apply(
+      subtabla, 2,
+      function(fila) {
+        prueba_fecha_date(fila) | prueba_fecha_excel(fila) | (prueba_anio(fila) & prueba_mes(fila)) 
+      })
+  # Identificamos los indices de las entradas con coincidencias
+  indices_celda <- data.frame(which(coincidencias, arr.ind = TRUE))
+  # Exigimos que haya al menos un resultado
+  if ( length(indices_celda) > 0 ) {
+    # Especificamos la primera coincidencia
+    contenido_celda <- as.character(subtabla[indices_celda$row[1], indices_celda$col[1]])
+  } else {
+    cat("\nNo se pudo encontrar una fecha.\n")
+    break
+  } 
+  
+  # Establecemos el proceso directo para formatos de fecha
+  
+  if ( prueba_fecha_date(contenido_celda) ) {
+    
+    fecha_identificada <- parsedate::parse_date(contenido_celda)
+    
+    # Establecemos la condición para cuando el texto leído corresponde a fecha en formato numérico de Excel
+    
+  } else if ( prueba_fecha_excel(contenido_celda) ) {
+    
+    # Determinamos el valor de la celda buscada con la fecha de corte
+    num_fecha_corte <- as.numeric(contenido_celda)
+    # Determinamos la fecha de corte
+    fecha_identificada <- as.Date( num_fecha_corte, origin = "1899-12-30")
+    
+    # Establecemos el procedimiento para el caso de tener un mes y un año reconocibles
+    
+  } else if ( prueba_anio(contenido_celda) & prueba_mes(contenido_celda) ) {
+    
+    # Dividimos el texto original en sus componentes por si hubiera más de una fecha
+    texto_dividido <- unlist(strsplit(contenido_celda, " "))
+    # Establecemos el proceso cuando haya solo un año, solo un mes, y no más de un día del mes
+    if ( sum(prueba_anio(texto_dividido)) == 1 & 
+         sum(prueba_mes(texto_dividido)) == 1 & 
+         sum(prueba_dia(texto_dividido)) <= 1 ) {
+      fechas_reconocidas <- traductor_mes(contenido_celda)
+      fecha_identificada <- parsedate::parse_date(fechas_reconocidas)
+      # Establecemos el proceso cuando hay más de una fecha en la celda elegida
+    } else {
+      # Traducimos el contenido de la celda elegida
+      fechas_reconocidas <- traductor_mes(contenido_celda)
+      # Empleamos un selector para el separador de frases, según formato
+      separadores_fechas <-
+        if ( grepl("-",contenido_celda, ignore.case = TRUE) ) {
+          " "
+        } else if ( grepl("de",contenido_celda, ignore.case = TRUE) ) {
+          c(" al "," hasta ")
+        }
+      # Separamos las diferentes frases relacionadas a fechas
+      fechas_reconocidas <- strsplit(fechas_reconocidas, separadores_fechas)[[1]]
+      # Agregamos un filtro para evitar frases sin el año
+      fechas_reconocidas <- fechas_reconocidas[prueba_anio(fechas_reconocidas)]
+      fechas_reconocidas <- parsedate::parse_date(fechas_reconocidas)
+      # Agregamos un filtro para elegir siempre la mayor de las fechas
+      fecha_identificada <- fechas_reconocidas[which.max(fechas_reconocidas)]
+    }
+  }
+  
+  # Determinamos el año
+  anio <- format(fecha_identificada, "%Y")
+  # Determinamos el mes
+  mes <- format(fecha_identificada, "%m")
+  # Determinamos una fecha preliminar
+  fecha_corte_preliminar <- paste(anio,mes,"01",sep = "-")
+  # Determinamos el último día del respectivo mes
+  fecha_corte <- as.Date(fecha_corte_preliminar) + months(1) - days(1)
+  
+  return(fecha_corte)
+}
+
+# Descarga----
 
 obtenerEnlacesDescarga <- function(enlaces_descarga, identificador) {
   
@@ -1023,291 +1080,7 @@ descargarArchivosEnlacesAnalizados <- function(enlaces, informacion, ruta_destin
   cat("\n\n")
 }
 
-descargarBoletinesFinancierosSB <- function(ruta_archivo_html) {
-  
-  requerirPaquetes("rvest","dplyr","stringr","readr")
-  
-  leer_pagina_html <- function(ruta_archivo_html, codificacion = NA) {
-    if ( is.na(codificacion) ) {
-      codificacion <-
-        readr::guess_encoding(ruta_archivo_html) %>%
-        slice(which.max(confidence)) %>%
-        pull(encoding)
-    }
-    pagina_html <- rvest::read_html(ruta_archivo_html, encoding = codificacion)
-    return(pagina_html)
-  }
-  scraping_descarga_entry_file <- function(pagina_html, informacion_enlaces_data_frame) {
-    nodos_descarga_entry_file <- pagina_html %>% html_nodes(".entry.file")
-    if ( length(nodos_descarga_entry_file) > 0 ) {
-      informacion_enlaces <- data.frame(
-        boletin =
-          pagina_html %>% html_nodes(".entry.file") %>% html_attr("data-name"),
-        nombre_archivo =
-          pagina_html %>% html_nodes(".entry.file") %>%
-          html_nodes(".entry-info-name span") %>% html_text(),
-        enlace_descarga =
-          pagina_html %>% html_nodes(".entry_link.entry_action_download") %>% #no se puede separar el selector
-          html_attr("href"),
-        ids_archivo =
-          pagina_html %>% html_nodes(".entry.file") %>% html_attr("data-id"),
-        fecha_modificacion =
-          pagina_html %>% html_nodes(".entry-info-modified-date") %>% html_text(),
-        fecha_descripcion =
-          pagina_html %>% html_node(".description-file-info") %>% html_text() %>%
-          stringr::str_extract("\\d+\\s[a-zA-Z]+,\\s\\d{4}\\s\\d+:\\d+\\s[ap]m"),
-        tamanio_archivo =
-          pagina_html %>% html_nodes(".entry-info-size") %>% html_text() %>%
-          readr::parse_number()
-      )
-    } else {
-      informacion_enlaces <- informacion_enlaces_data_frame
-    }
-    return(informacion_enlaces)
-  }
-  scraping_descarga_a <- function(pagina_html, informacion_enlaces_data_frame) {
-    nodos_descarga_entry_file <- pagina_html %>% html_nodes(".entry.file")
-    nodos_descarga_a <- pagina_html %>% html_nodes("a")
-    if ( length(nodos_descarga_entry_file) == 0 &
-         length(nodos_descarga_a) > 0
-    ) {
-      # informacion_enlaces <-
-      #   data.frame(enlaces_descarga = nodos_descarga_a %>% html_attr("href")) %>%
-      #   mutate(nombre_archivo = basename(enlaces_descarga))
-      enlaces_descarga <- nodos_descarga_a %>% html_attr("href")
-      informacion_enlaces <-
-        obtenerEnlacesDescarga(enlaces_descarga,"SB") %>%
-        rename(
-          fecha_acceso = "time",
-          enlace_descarga = "url",
-          nombre_archivo = "filename",
-          fecha_modificacion = "last_modified",
-          tamanio_archivo = "content_length"
-        )
-    } else {
-      informacion_enlaces <- informacion_enlaces_data_frame
-    }
-    return(informacion_enlaces)
-  }
-  scraping_descarga_error <- function(informacion_enlaces_data_frame) {
-    if ( nrow(informacion_enlaces_data_frame) == 0 ) {
-      stop(paste("\nEl proceso se ha interrumpido,",
-                 "el Web Scraping no pudo realizarse,",
-                 "la función 'descargarBoletinesFinancierosSB'",
-                 "requiere mantenimiento."))
-    }
-  }
-  directorioCarpetaDescarga <- function(ruta_archivo_html, nombre_archivo) {
-    directorio_carpeta <-
-      ruta_archivo_html %>%
-      gsub(".html", "",.) %>%
-      gsub("html/", "data/Descargas/",.)
-    anio_actual <- as.numeric(format(Sys.Date(), "%Y"))
-    expresion_regular_anios <- paste(seq(1990,anio_actual), collapse = "|")
-    prueba_anio <- grepl(expresion_regular_anios, directorio_carpeta)
-    if ( !prueba_anio ) {
-      nombre_carpeta <- gsub(".zip", "", nombre_archivo)
-      coincidencias_anio <- gregexpr(expresion_regular_anios, nombre_carpeta)
-      nombre_carpeta <- unlist(regmatches(nombre_carpeta, coincidencias_anio))
-      directorio_carpeta <- 
-        gsub(basename(directorio_carpeta), nombre_carpeta, directorio_carpeta)
-    }
-    crearDirectorio(directorio_carpeta)
-    return(directorio_carpeta)
-  }
-  
-  pagina_html <- leer_pagina_html(ruta_archivo_html)
-  
-  informacion_enlases_selecionados <- data.frame()
-  informacion_enlases_selecionados <- scraping_descarga_entry_file(pagina_html, informacion_enlases_selecionados)
-  informacion_enlases_selecionados <- scraping_descarga_a(pagina_html, informacion_enlases_selecionados)
-  scraping_descarga_error(informacion_enlases_selecionados)
-  
-  exportarReporteTabla(
-    dataFrame =  informacion_enlases_selecionados,
-    nombre_archivo =
-      paste("Reporte Enlaces de Descarga SB",
-            tools::file_path_sans_ext(basename(ruta_archivo_html))))
-  
-  #barraProgresoReinicio()
-  
-  for (k in 1:nrow(informacion_enlases_selecionados) ) {
-    link <- informacion_enlases_selecionados$enlace_descarga[k]
-    nombre_archivo <- informacion_enlases_selecionados$nombre_archivo[k]
-    directorio_descarga <-
-      directorioCarpetaDescarga(ruta_archivo_html, nombre_archivo)
-    ruta_archivo <- file.path(directorio_descarga, nombre_archivo)
-    #tamanio_archivo <- informacion_enlases_selecionados$tamanos_archivo[k]
-    if ( 
-      !file.exists(ruta_archivo) #| file.size(ruta_archivo) < tamanio_archivo
-    ) {
-      download.file(link, ruta_archivo, mode = "wb", timeout = 300)
-      cat("\033[1;32mSe descargó el archivo en la ruta:\033[0m",
-          "[", normalizePath(ruta_archivo),"]\n\n")
-      #barraProgreso(seq_along(download_links_elegidos))
-      #cat("Descargando... ")
-    }
-  }
-}
-
-ejecutarDescargaBoletinesFinancierosSB <- function() {
-  ruta_directorio_html_SB <- "html/SB/Boletines Financieros Mensuales"
-  rutas_archivos_html_SB <-
-    list.files(ruta_directorio_html_SB, recursive = TRUE, full.names = TRUE)
-  
-  ruta_directorio_html_SB_Privados <-
-    paste0(ruta_directorio_html_SB,"/Bancos Privados/",
-           format(Sys.Date(),"%Y"),".html")
-  ruta_directorio_html_SB_Publicas <-
-    paste0(ruta_directorio_html_SB,"/Instituciones Publicas/",
-           format(Sys.Date(),"%Y"),".html")
-  prueba_ruta_anio_actual <-
-    all(c(ruta_directorio_html_SB_Privados,
-      ruta_directorio_html_SB_Publicas) %in% rutas_archivos_html_SB)
-  if ( ! prueba_ruta_anio_actual  ) {
-    file.create(ruta_directorio_html_SB_Privados,
-                ruta_directorio_html_SB_Publicas)
-  }
-    
-  barraProgresoReinicio()
-  for (ruta in rutas_archivos_html_SB) {
-    descargarBoletinesFinancierosSB(ruta)
-    barraProgreso(rutas_archivos_html_SB)
-    cat("\033[1;32mAnalizando archivo html en la ruta:\033[0m [", ruta, "]\n\n")
-  }
-}
-
-# SEPS----
-
-gestorDescargasDescompresionSEPS <- function() {
-  
-  enlaces_SEPS <- analisisVinculosPaginaWebSEPS()
-  
-  info_enlaces_SEPS <-
-    obtenerEnlacesDescarga(enlaces_descarga = enlaces_SEPS, identificador = "SEPS")
-  
-  ruta_descargas_SEPS <- "data/Descargas/SEPS/Bases de Datos/Estados Financieros"
-  descargarArchivosEnlacesAnalizados(enlaces_SEPS, info_enlaces_SEPS, ruta_descargas_SEPS)
-  
-  ruta_fuentes_SEPS <- "data/Fuente/SEPS/Bases de Datos/Estados Financieros"
-  descomprimirArchivosDirectorioZip(ruta_descargas_SEPS, ruta_fuentes_SEPS) # Verificado en prueba 2023/06/09
-  
-}
-
-modificarNombreColumnaSEPS <- function(tabla, nombre_nuevo, ...) {
-  
-  # nombre_nuevo: debe ser un string con el nombre deseado para homogeneizar
-  
-  requerirPaquetes("dplyr","rlang","stringr")
-  
-  # Lista de palabras a buscar por columna
-  palabras <- list(...)
-  # Buscamos las palabras clave en los nombres de las variables
-  coincidencias <- lapply(palabras, function(x) stringr::str_detect(names(tabla), stringr::regex(x, ignore_case = TRUE)))
-  # Determinamos el nombre de columna a cambiar
-  nombre_anterior <- names(tabla)[Reduce(`&`, coincidencias)]
-  # Se puede pasar el nuevo nombre de la columna como una variable desde fuera de la función dplyr::rename(). Para hacerlo, puedes usar la función rlang::sym() para convertir el valor de la variable en un símbolo y luego usar el operador !! para evaluarlo dentro de dplyr::rename()
-  tabla <- dplyr::rename(tabla, !!rlang::sym(nombre_nuevo) := nombre_anterior)
-  # Resultado de la función
-  return(tabla)
-}
-
-generarListaTablasSEPS <- function() {
-  requerirPaquetes("dplyr","readr")
-  directorio_principal <- "data/Fuente/SEPS/Bases de Datos"
-  archivos <-
-    list.files(path = directorio_principal, full.names = TRUE, recursive = TRUE)
-  lista_tablas_SEPS <- list()
-  for ( archivo in archivos ) {
-    barraProgreso(archivos)
-    cat("\033[1;32mImpotando y procesando el archivo:\033[0m",
-        "[", normalizePath(archivo), "]\n")
-    nombre_tabla <- basename(dirname(archivo))
-    lista_tablas_SEPS[[nombre_tabla]] <-
-      archivo %>%
-      readr::read_delim(., guess_max = 1000 ) %>%
-      modificarNombreColumnaSEPS(., nombre_nuevo = "FECHA", "fecha", "corte") %>%
-      modificarNombreColumnaSEPS(., nombre_nuevo = "SEGMENTO", "segmento") %>%
-      modificarNombreColumnaSEPS(., nombre_nuevo = "RUC", "ruc") %>%
-      modificarNombreColumnaSEPS(., nombre_nuevo = "RAZON_SOCIAL", "razon", "social") %>%
-      modificarNombreColumnaSEPS(., nombre_nuevo = "DESCRIPCION", "descripcion", "cuenta") %>%
-      modificarNombreColumnaSEPS(., nombre_nuevo = "CODIGO", "cuenta") %>%
-      modificarNombreColumnaSEPS(., nombre_nuevo = "CUENTA", "descripcion") %>%
-      modificarNombreColumnaSEPS(., nombre_nuevo = "VALOR", "saldo") %>%
-      dplyr::mutate(
-        `FECHA` = lubridate::ymd(`FECHA`),
-        `SEGMENTO` = as.character(`SEGMENTO`),
-        `RUC` = as.character(`RUC`),
-        `RAZON_SOCIAL` = as.character(`RAZON_SOCIAL`),
-        `CUENTA` = as.character(`CUENTA`),
-        `CODIGO` = as.integer(`CODIGO`),
-        `VALOR` = as.numeric(gsub(",", ".", `VALOR`)),
-        `SEGMENTO` = ifelse(`SEGMENTO` == "SEGMENTO 1 MUTUALISTA", "MUTUALISTA", `SEGMENTO`)
-      ) # %>%
-      # dplyr::mutate(
-      #   `RAZON_SOCIAL` = estandarizarCadenaCaracteres(`RAZON_SOCIAL`),
-      #   `CUENTA` = estandarizarCadenaCaracteres(`CUENTA`)
-      # )
-  }
-  return(lista_tablas_SEPS)
-}
-
-crearEstadosFinancierosSEPS <- function() {
-
-  requerirPaquetes("data.table","dplyr")
-  tic_general <- Sys.time()
-  
-  gestorDescargasDescompresionSEPS() # Verificado en prueba 2023/06/22
-  
-  lista_SEPS <- generarListaTablasSEPS()
-  
-  tabla_concatenada <- # Verificado en prueba 2023/06/22
-    lista_SEPS %>%
-    dplyr::bind_rows() %>%
-    dplyr::distinct() %>%
-    dplyr::mutate(
-      `RAZON_SOCIAL` = estandarizarCadenaCaracteresSeparada(`RAZON_SOCIAL`),
-      `CUENTA` = estandarizarCadenaCaracteresSeparada(`CUENTA`)
-    ) %>%
-    dplyr::mutate(
-      `RAZON_SOCIAL` = correcionCaracteresVectorizadaSeparada(`RAZON_SOCIAL`),
-      `CUENTA` = correcionCaracteresVectorizadaSeparada(`CUENTA`)) %>%
-    dplyr::arrange(`FECHA`)
-  
-  exportarResultadosCSV(tabla_concatenada,"SEPS Estados Financieros")
-  
-  cat("\n\n  \033[1;34mDuración total del proceso \"Estados Financieros SEPS\":",
-      formatoTiempoHMS(difftime(Sys.time(), tic_general, units = "secs")), "\033[0m\n")
-  
-  return(tabla_concatenada)
-}
-
-exportarEstadosFinancierosSEPSmensualSIEVA <- function(data_frame) {
-  requerirPaquetes("dplyr","openxlsx")
-  
-  ultima_fecha <- max(SEPS$FECHA)
-  
-  SEPS_SIEVA_mensual <-
-    data_frame %>%
-    filter(
-      FECHA == ultima_fecha,
-      SEGMENTO %in% c("MUTUALISTA", "SEGMENTO 1", "SEGMENTO 2", "SEGMENTO 3")) %>%
-    mutate(FECHA = format(FECHA, "%d/%m/%Y")) %>%
-    select(SEGMENTO, CODIGO, VALOR, FECHA, RUC) %>%
-    distinct() %>%
-    rename(
-      segmento = SEGMENTO,
-      cuenta = CODIGO,
-      valor = VALOR,
-      `fecha (dd/mm/AAAA)` = FECHA,
-      ruc = RUC
-    )
-  
-  ruta_dir_compartida <- "\\\\192.168.10.244\\inteligencia\\SIEVA SEPS Mensual"
-  nombre_archivo <- paste0("Balance SIEVA SEPS ", ultima_fecha, ".xlsx")
-  ruta_archivo <- file.path(ruta_dir_compartida, nombre_archivo)
-  openxlsx::write.xlsx(SEPS_SIEVA_mensual, ruta_archivo)
-}
+# Descompresión----
 
 verificarInstalacion <- function(ruta_intalacion) {
   
@@ -1539,227 +1312,458 @@ xlsb2xlsx <- function(ruta_archivo_xlsb) {
   
 }
 
-frecuenciaEmpiricaRelativaOcurrenciaDecimalEnTexto <- function(cadena_texto) {
+descomprimirArchivosDirectorioZip <- function(origen, destino) {
   
-  # Esta función calcula la frecuencia relativa de la ocurrencia de la expresión de un número decimal en una columna.
+  # EJEMPLO:
+  # origen <- "data/Descargas/SEPS/Bases de Datos"
+  # destino <- "data/Fuente/SEPS/Bases de Datos"
+  # descomprimirArchivosDirectorioZip(origen, destino)
   
-  # cadena_texto: es un vector tipo char que puede contener diferentes tipos de información todos convertidos en carácteres.
-  
-  # Ejemplo: frecuenciaEmpiricaRelativaOcurrenciaDecimalEnTexto(c("a",1,3.14,Sys.Date())) devolverá 0.25 como la frecuencia relativa por le 3.14
-
-  # Determinamos expresiones regulares para excluir expresiones con puntos y solo admitir con números
-  expresion_regular_codigo <- "^[[:digit:]]{1,6}$"
-  # Determinamos expresiones regulares para identificar números con o sin decimales, positivos o negativos, con o sin notación científica
-  expresion_regular_numero <- "^[-]?[0-9]+([.,][0-9]+)?([Ee][-+]?[0-9]+)?$"
-  # Determinamos expresiones regulares para para el cero como palabra completa
-  expresion_regular_cero <- "^[0]?$"
-  # Determinamos la prueba lógica para números decimales excluyendo los enteros pero aceptando el cero y NA
-  prueba_numero_decimal <- 
-    ( ! grepl(expresion_regular_codigo, cadena_texto) & 
-        grepl(expresion_regular_numero, cadena_texto) ) |
-    grepl(expresion_regular_cero, cadena_texto) |
-    is.na(cadena_texto)
-  # Asumiendo distribución Poisson para cada caso, calculamos un estimador para la media que representa la tasa media de ocurrencia
-  frecuencia_relativa_ocurrencia <- mean(prueba_numero_decimal, na.rm = TRUE)
-  
-  return(frecuencia_relativa_ocurrencia)
-}
-
-indicePrimeraFilDecimalTabla <- function(tabla) {
-  filas <- 1:nrow(tabla)
-  frecuencia_ocurrencia_decimal_filas <-
-    sapply(
-      filas,
-      function(fila) {
-        cadena_texto <- as.character(tabla[fila,])
-        frecuenciaEmpiricaRelativaOcurrenciaDecimalEnTexto(cadena_texto)
+  requerirPaquetes("utils")
+  descompresionZip <- function(ruta_origen, directorio_destino) {
+    #if ( !dir.exists(directorio_destino) ) 
+    crearDirectorio(directorio_destino)
+    tryCatch(
+      {
+        utils::unzip(ruta_origen, exdir = directorio_destino)
+      },
+      error = function(e) {
+        message("Ocurrió un error al descomprimir el archivo zip: ", e$message,
+                "\nEmpleando 7-Zip para completar la descompresión...")
+        # Código para manejar el error, utilizando una herramienta externa para descomprimir el archivo zip
+        ruta_origen_normalizado <- normalizePath(ruta_origen)
+        ruta_destino_normalizado <- normalizePath(directorio_destino)
+        # Descompresión externa de archivos
+        descompresion7zip(ruta_origen_normalizado, ruta_destino_normalizado)
       }
     )
-  primera_fila_decimal <- which.min(frecuencia_ocurrencia_decimal_filas) + 1
-  return(primera_fila_decimal)
+  }
+  archivoZip <- function() {
+    #archivos_contenidos <- utils::unzip(ruta_origen, list = TRUE)$Name
+    hay_contenidos_zip <- any(grepl("\\.zip$", archivos_contenidos))
+    if ( hay_contenidos_zip ) {
+      directorio_destino_temporal <-
+        dirname(gsub("Descargas","Temporal",ruta_origen))
+      #if ( !dir.exists(directorio_destino_temporal) )
+      crearDirectorio(directorio_destino_temporal)
+      descompresionZip(ruta_origen, directorio_destino_temporal)
+      ruta_comprimido_temporal <-
+        file.path(directorio_destino_temporal, archivos_contenidos)
+      directorio_origen_temporal <- directorio_destino_temporal
+      descomprimirArchivosDirectorioZip(origen = directorio_origen_temporal,
+                                        destino = directorio_destino)
+      unlink(ruta_comprimido_temporal, recursive = TRUE)
+      #file.remove(ruta_comprimido_temporal)
+    } else {
+      descompresionZip(ruta_origen, directorio_destino)
+    }
+  }
+  copiarArchivo <- function() {
+    ruta_verificacion <- file.path(destino, archivo)
+    if ( !file.exists(ruta_verificacion) ) {
+      cat("\nCopiando el archivo: [", normalizePath(ruta_origen),"] ...\n")
+      file.copy( ruta_origen, ruta_verificacion )
+    }
+  }
+  decidirAccion <- function() {
+    tiene_extension_zip <- grepl("\\.zip$", ruta_origen)
+    if ( tiene_extension_zip ) {
+      archivoZip()
+    } else {
+      copiarArchivo()
+    }
+  }
+  
+  archivos_origen <- list.files(origen, recursive = TRUE)
+  # Elegimos únicamente los archivos con extensión zip
+  archivos <- grep("\\.zip$", archivos_origen, value = TRUE)
+  for ( archivo in archivos ) {
+    ruta_origen <- file.path( origen, archivo )
+    # Establecer el directorio de destino para los archivos Descomprimidos
+    va_a_data_fuente_SB <-
+      grepl("(?=.*data)(?=.*Fuente)(?=.*SB)", destino, perl = TRUE)
+    if ( va_a_data_fuente_SB ) {
+      directorio_destino <-
+        dirname(gsub("Descargas|Temporal","Fuente",ruta_origen))
+    } else {
+      nombre_archivo_zip <- gsub("\\.zip$","",basename(ruta_origen))
+      directorio_destino <- file.path(destino, nombre_archivo_zip)
+    }
+    #if ( !dir.exists(directorio_destino) )
+    crearDirectorio(directorio_destino)
+    archivos_contenidos <-
+      utils::unzip(ruta_origen, list = TRUE)$Name
+    alguno_de_los_caracteres_no_es_utf8 <-
+      any(is.na(unlist(sapply(archivos_contenidos, utf8ToInt))))
+    if ( !alguno_de_los_caracteres_no_es_utf8 ) {
+      ruta_archivos_descomprimidos <-
+        file.path(directorio_destino, archivos_contenidos)
+      existe_archivo_descomprimido <-
+        all(file.exists(ruta_archivos_descomprimidos))
+    } else {
+      existe_archivo_descomprimido <- FALSE
+    }
+    if ( !existe_archivo_descomprimido ) {
+      decidirAccion()
+      barraProgreso(archivos)
+      cat("\033[1;32mDescomprimiendo el archivo:\033[0m [", normalizePath(ruta_origen), "]\n")
+    }
+  }
+  cat("\n")
 }
 
-analisisDifusoNLPFechaCorte <- function(tabla) {
+eliminarArchivosZipEnDirectorio <- function(ruta_directorio) {
+  # EJEMPLO:
+  # ruta_directorio <- "data/Fuente/SB/Boletines Financieros Mensuales"
+  # eliminarArchivosZipEnDirectorio(ruta_directorio)
+  rutas_archivos <-
+    list.files(ruta_directorio, recursive = TRUE, full.names = TRUE)
+  rutas_zip_eliminar <- grep("\\.zip$", rutas_archivos, value = TRUE)
+  unlink(rutas_zip_eliminar, recursive = TRUE)
+}
+
+depurarDirectorioPorAnio <- function(directorio_principal) {
   
-  # Esta función procesa un texto relacionado a un la fecha de corte de los "Balances Financieros" de SB y devuelve el date más cercano a fecha de corte.
+  # EJEMPLO:
+  # directorio_principal <- "data/Fuente/SB/Boletines Financieros Mensuales"
+  # depurarDirectorioPorAnio(directorio_principal)
   
-  requerirPaquetes("lubridate","parsedate","stringdist")
-  
-  traductor_mes <- function(texto) {
+  rutas_archivos <-
+    list.files(directorio_principal, recursive = TRUE, full.names = TRUE)
+  for ( ruta_archivo in rutas_archivos ) {
+    tiene_extension_zip <- grepl("\\.zip$", basename(ruta_archivo))
+    if ( tiene_extension_zip ) unlink(ruta_archivo, recursive = TRUE)
     
-    # Esta función modifica con la traducción al ingles correspondiente sean los nombres completos o las abreviaciones de los meses, para un posterior reconocimiento optimo de fecha
+    partes_ruta <- unlist(strsplit(ruta_archivo, "/"))
+    directorio_archivo <- paste(partes_ruta[1:6], collapse = "/")
+    nombre_archivo <- tail(partes_ruta, 1)
+    ruta_corregida <- file.path(directorio_archivo, nombre_archivo)
     
-    texto_original <- tolower(texto)
-    # Creamos un diccionario para traducción y posterior reconocimiento optimo de fechas
-    meses <-
-      data.frame(
-        es = c("ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"),
-        #en = substr(strsplit(tolower(month.name), " "), 1, 3)
-        en = tolower(month.name)
-      )
-    # Definimos el patrón buscado en el texto
-    patron <- meses$es
-    # Definimos el texto de reemplazo
-    reemplazo <- meses$en
-    # Definimos los separadores admisibles para las palabras
-    separadores <- "[-,/, ]"
-    # Separamos cada palabra en sus letras componentes
-    palabras <- strsplit(texto_original, separadores)[[1]]
-    # palabras <- unlist(strsplit(texto_original, separadores))
-    # Elegimos únicamente las 3 primeros caracteres de cada palabra para obtener expresiones como: "ene"
-    palabras_abreviadas <- substr(palabras, 1, 3)
-    # Calculamos las similitudes entres las palabras abreviadas y el patrón de busqueda
-    similitudes <- stringdist::stringsimmatrix(palabras_abreviadas, patron, method = "jw")
-    # Se emplea una probabilidad de similitud del 90% para compensar el error por identidad con el máximo
-    #posiciones_max <- as.data.frame(which(similitudes >= 0.8*max(similitudes), arr.ind = TRUE))
-    # Buscamos los índices con las mayores coincidencias
-    posiciones_max <- as.data.frame(which(similitudes == max(similitudes), arr.ind = TRUE))
-    # Determinamos las abreviaciones similares
-    palabra_similar <- palabras[posiciones_max$row]
-    # Reemplazamos con la palabra completa las abreviaciones similares
-    reemplazo_similar <- reemplazo[posiciones_max$col]
-    # Modificamos uno a uno los nombres de los mes traducidos
-    texto_modificado <- texto_original
-    for ( k in seq_along(palabra_similar) ) {
-      texto_modificado <- gsub(palabra_similar[k], reemplazo_similar[k], texto_modificado)
+    son_rutas_diferentes <- ruta_corregida != ruta_archivo
+    if ( son_rutas_diferentes & !tiene_extension_zip ) {
+      file.copy(from = ruta_archivo, to = directorio_archivo)
+      unlink(ruta_archivo, recursive = TRUE)
     }
-    return(texto_modificado)
+    directorio_original <- dirname(ruta_archivo)
+    
+    es_directorio_vacio <-
+      length(list.files(directorio_original, recursive = TRUE)) == 0
+    if ( es_directorio_vacio ) unlink(directorio_original, recursive = TRUE)
+    
+    # tamanio_directorio_eliminar <- file.info(directorio_original)$size
+    # es_directorio_vacio <- tamanio_directorio_eliminar == 0
+    # if ( es_directorio_vacio ) unlink(directorio_original, recursive = TRUE)
   }
-  prueba_anio <- function(texto) {
-    # Año actual a texto, para generar expresión regular de año, usan Sys.Date() y descomponiéndolo
-    anio_num <- year(Sys.Date())
-    anio_text <- strsplit(as.character(anio_num), split = "")[[1]]
-    # Establecemos una expresión regular que acepta 2000 hasta el año actual
-    expresion_regular_anio <- paste0("\\b(",anio_text[1],"[",0,"-",anio_text[2],"][",0,"-",anio_text[3],"][0-9])\\b")
-    # expresion_regular_anio <- "\\b(20[0-3][0-9])\\b$" # acepta desde 2000 hasta 2039
-    return(grepl(expresion_regular_anio, texto, ignore.case = TRUE))
+}
+
+# SEPS----
+
+analisisVinculosPaginaWebSEPS <- function() {
+  
+  requerirPaquetes("dplyr","rvest")
+  
+  link <- "https://estadisticas.seps.gob.ec/index.php/estadisticas-sfps/"
+  pagina <- rvest::read_html(link)
+  
+  # En el código original de la página se han identificado los nodos para las "Bases de Datos" como: `collapse_4`, `collapse_5`
+  div_BaseDatos <- pagina %>%
+    rvest::html_nodes("#collapse_4, #collapse_5")
+  # rvest::html_nodes(xpath = '//*[@id="collapse_4" or @id="collapse_5"]')
+  # Recuperamos los enlaces de descarga
+  links_BaseDatos <-
+    rvest::html_nodes(div_BaseDatos,"a") %>%
+    rvest::html_attr("href")
+  
+  cat("\n\033[1mEnlaces de descarga encontrados en la página:\033[0m [",link,"]\n")
+  print(links_BaseDatos)
+  
+  return(links_BaseDatos)
+}
+
+gestorDescargasDescompresionSEPS <- function() {
+  
+  enlaces_SEPS <- analisisVinculosPaginaWebSEPS()
+  
+  info_enlaces_SEPS <-
+    obtenerEnlacesDescarga(enlaces_descarga = enlaces_SEPS, identificador = "SEPS")
+  
+  ruta_descargas_SEPS <- "data/Descargas/SEPS/Bases de Datos/Estados Financieros"
+  descargarArchivosEnlacesAnalizados(enlaces_SEPS, info_enlaces_SEPS, ruta_descargas_SEPS)
+  
+  ruta_fuentes_SEPS <- "data/Fuente/SEPS/Bases de Datos/Estados Financieros"
+  descomprimirArchivosDirectorioZip(ruta_descargas_SEPS, ruta_fuentes_SEPS) # Verificado en prueba 2023/06/09
+  
+}
+
+modificarNombreColumnaSEPS <- function(tabla, nombre_nuevo, ...) {
+  
+  # nombre_nuevo: debe ser un string con el nombre deseado para homogeneizar
+  
+  requerirPaquetes("dplyr","rlang","stringr")
+  
+  # Lista de palabras a buscar por columna
+  palabras <- list(...)
+  # Buscamos las palabras clave en los nombres de las variables
+  coincidencias <- lapply(palabras, function(x) stringr::str_detect(names(tabla), stringr::regex(x, ignore_case = TRUE)))
+  # Determinamos el nombre de columna a cambiar
+  nombre_anterior <- names(tabla)[Reduce(`&`, coincidencias)]
+  # Se puede pasar el nuevo nombre de la columna como una variable desde fuera de la función dplyr::rename(). Para hacerlo, puedes usar la función rlang::sym() para convertir el valor de la variable en un símbolo y luego usar el operador !! para evaluarlo dentro de dplyr::rename()
+  tabla <- dplyr::rename(tabla, !!rlang::sym(nombre_nuevo) := nombre_anterior)
+  # Resultado de la función
+  return(tabla)
+}
+
+generarListaTablasSEPS <- function() {
+  requerirPaquetes("dplyr","readr")
+  directorio_principal <- "data/Fuente/SEPS/Bases de Datos"
+  archivos <-
+    list.files(path = directorio_principal, full.names = TRUE, recursive = TRUE)
+  lista_tablas_SEPS <- list()
+  for ( archivo in archivos ) {
+    barraProgreso(archivos)
+    cat("\033[1;32mImpotando y procesando el archivo:\033[0m",
+        "[", normalizePath(archivo), "]\n")
+    nombre_tabla <- basename(dirname(archivo))
+    lista_tablas_SEPS[[nombre_tabla]] <-
+      archivo %>%
+      readr::read_delim(., guess_max = 1000 ) %>%
+      modificarNombreColumnaSEPS(., nombre_nuevo = "FECHA", "fecha", "corte") %>%
+      modificarNombreColumnaSEPS(., nombre_nuevo = "SEGMENTO", "segmento") %>%
+      modificarNombreColumnaSEPS(., nombre_nuevo = "RUC", "ruc") %>%
+      modificarNombreColumnaSEPS(., nombre_nuevo = "RAZON_SOCIAL", "razon", "social") %>%
+      modificarNombreColumnaSEPS(., nombre_nuevo = "DESCRIPCION", "descripcion", "cuenta") %>%
+      modificarNombreColumnaSEPS(., nombre_nuevo = "CODIGO", "cuenta") %>%
+      modificarNombreColumnaSEPS(., nombre_nuevo = "CUENTA", "descripcion") %>%
+      modificarNombreColumnaSEPS(., nombre_nuevo = "VALOR", "saldo") %>%
+      dplyr::mutate(
+        `FECHA` = lubridate::ymd(`FECHA`),
+        `SEGMENTO` = as.character(`SEGMENTO`),
+        `RUC` = as.character(`RUC`),
+        `RAZON_SOCIAL` = as.character(`RAZON_SOCIAL`),
+        `CUENTA` = as.character(`CUENTA`),
+        `CODIGO` = as.integer(`CODIGO`),
+        `VALOR` = as.numeric(gsub(",", ".", `VALOR`)),
+        `SEGMENTO` = ifelse(`SEGMENTO` == "SEGMENTO 1 MUTUALISTA", "MUTUALISTA", `SEGMENTO`)
+      ) # %>%
+      # dplyr::mutate(
+      #   `RAZON_SOCIAL` = estandarizarCadenaCaracteres(`RAZON_SOCIAL`),
+      #   `CUENTA` = estandarizarCadenaCaracteres(`CUENTA`)
+      # )
   }
-  prueba_mes <- function(texto) {
-    # Establecemos una expresión regular
-    expresion_regular_mes <- paste0(c("ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"), collapse = "|")
-    return(grepl(expresion_regular_mes, texto, ignore.case = TRUE))
+  return(lista_tablas_SEPS)
+}
+
+crearEstadosFinancierosSEPS <- function() {
+
+  requerirPaquetes("data.table","dplyr")
+  tic_general <- Sys.time()
+  
+  gestorDescargasDescompresionSEPS() # Verificado en prueba 2023/06/22
+  
+  lista_SEPS <- generarListaTablasSEPS()
+  
+  tabla_concatenada <- # Verificado en prueba 2023/06/22
+    lista_SEPS %>%
+    dplyr::bind_rows() %>%
+    dplyr::distinct() %>%
+    dplyr::mutate(
+      `RAZON_SOCIAL` = estandarizarCadenaCaracteresSeparada(`RAZON_SOCIAL`),
+      `CUENTA` = estandarizarCadenaCaracteresSeparada(`CUENTA`)
+    ) %>%
+    dplyr::mutate(
+      `RAZON_SOCIAL` = correcionCaracteresVectorizadaSeparada(`RAZON_SOCIAL`),
+      `CUENTA` = correcionCaracteresVectorizadaSeparada(`CUENTA`)) %>%
+    dplyr::arrange(`FECHA`)
+  
+  exportarResultadosCSV(tabla_concatenada,"SEPS Estados Financieros")
+  
+  cat("\n\n  \033[1;34mDuración total del proceso \"Estados Financieros SEPS\":",
+      formatoTiempoHMS(difftime(Sys.time(), tic_general, units = "secs")), "\033[0m\n")
+  
+  return(tabla_concatenada)
+}
+
+exportarEstadosFinancierosSEPSmensualSIEVA <- function(data_frame) {
+  requerirPaquetes("dplyr","openxlsx")
+  
+  ultima_fecha <- max(SEPS$FECHA)
+  
+  SEPS_SIEVA_mensual <-
+    data_frame %>%
+    filter(
+      FECHA == ultima_fecha,
+      SEGMENTO %in% c("MUTUALISTA", "SEGMENTO 1", "SEGMENTO 2", "SEGMENTO 3")) %>%
+    mutate(FECHA = format(FECHA, "%d/%m/%Y")) %>%
+    select(SEGMENTO, CODIGO, VALOR, FECHA, RUC) %>%
+    distinct() %>%
+    rename(
+      segmento = SEGMENTO,
+      cuenta = CODIGO,
+      valor = VALOR,
+      `fecha (dd/mm/AAAA)` = FECHA,
+      ruc = RUC
+    )
+  
+  ruta_dir_compartida <- "\\\\192.168.10.244\\inteligencia\\SIEVA SEPS Mensual"
+  nombre_archivo <- paste0("Balance SIEVA SEPS ", ultima_fecha, ".xlsx")
+  ruta_archivo <- file.path(ruta_dir_compartida, nombre_archivo)
+  openxlsx::write.xlsx(SEPS_SIEVA_mensual, ruta_archivo)
+}
+
+# SB----
+
+descargarBoletinesFinancierosSB <- function(ruta_archivo_html) {
+  
+  requerirPaquetes("rvest","dplyr","stringr","readr")
+  
+  leer_pagina_html <- function(ruta_archivo_html, codificacion = NA) {
+    if ( is.na(codificacion) ) {
+      codificacion <-
+        readr::guess_encoding(ruta_archivo_html) %>%
+        slice(which.max(confidence)) %>%
+        pull(encoding)
+    }
+    pagina_html <- rvest::read_html(ruta_archivo_html, encoding = codificacion)
+    return(pagina_html)
   }
-  prueba_dia <- function(texto) {
-    # Establecemos una expresión regular del día del mes
-    expresion_regular_dia <- "\\b([1-2]?[0-9]|3[0-1])\\b"
-    return(grepl(expresion_regular_dia, texto, ignore.case = TRUE))
-  }
-  formato_numerico_excel <- function(fecha) {
-    # Función para transformar a formato numérico de Excel una fecha date
-    # Fecha base de Excel
-    fecha_base_excel <- as.Date("1899-12-30")
-    return(as.numeric(difftime(as.Date(fecha), as.Date("1899-12-30"))))
-  }
-  prueba_fecha_excel <- function(texto) {
-    # Fecha de inicio de busqueda en formato numérico de Excel
-    fecha_num_excel_inicio <- formato_numerico_excel("2000-01-01")
-    # Fecha de inicio descompuesta en caracteres para formar expresión regular
-    fechaI <- strsplit(as.character(fecha_num_excel_inicio), split = "")[[1]]
-    # Fecha de actual en formato numérico de Excel para busqueda
-    fecha_num_excel_fin <- formato_numerico_excel(Sys.Date())
-    # Fecha de fin descompuesta en caracteres para formar expresión regular
-    fechaF <- strsplit(as.character(fecha_num_excel_fin), split = "")[[1]]
-    # Establecemos una expresión regular que acepte los formatos numéricos para fecha de Excel
-    expresion_regular_fecha_num_excel <-
-      paste0(
-        "^(",fechaI[1],"[",fechaI[2],"-9]","[",fechaI[3],"-9]","[",fechaI[4],"-9]","[",fechaI[5],"-9]|",
-        fechaF[1],"[0-9]{", length(fechaF)-1, "})"
+  scraping_descarga_entry_file <- function(pagina_html, informacion_enlaces_data_frame) {
+    nodos_descarga_entry_file <- pagina_html %>% html_nodes(".entry.file")
+    if ( length(nodos_descarga_entry_file) > 0 ) {
+      informacion_enlaces <- data.frame(
+        boletin =
+          pagina_html %>% html_nodes(".entry.file") %>% html_attr("data-name"),
+        nombre_archivo =
+          pagina_html %>% html_nodes(".entry.file") %>%
+          html_nodes(".entry-info-name span") %>% html_text(),
+        enlace_descarga =
+          pagina_html %>% html_nodes(".entry_link.entry_action_download") %>% #no se puede separar el selector
+          html_attr("href"),
+        ids_archivo =
+          pagina_html %>% html_nodes(".entry.file") %>% html_attr("data-id"),
+        fecha_modificacion =
+          pagina_html %>% html_nodes(".entry-info-modified-date") %>% html_text(),
+        fecha_descripcion =
+          pagina_html %>% html_node(".description-file-info") %>% html_text() %>%
+          stringr::str_extract("\\d+\\s[a-zA-Z]+,\\s\\d{4}\\s\\d+:\\d+\\s[ap]m"),
+        tamanio_archivo =
+          pagina_html %>% html_nodes(".entry-info-size") %>% html_text() %>%
+          readr::parse_number()
       )
-    return(grepl(expresion_regular_fecha_num_excel, texto))
-  }
-  prueba_fecha_date <- function(texto) {
-    # Establecemos una expresión regular que acepte variantes de formato fecha
-    expresion_regular_fecha_date <-
-      paste(c(
-        "\\b(20[0-9]{2}[-/][0-1][0-9][-/][0-3]?[0-9])\\b",
-        #"\\b(20[0-9]{2}[-/][[:alpha:]]{1,10}[-/][0-3]?[0-9])\\b",# NO USAR ALTERA EN EL CONDICIONAL
-        "\\b([0-3]?[0-9][-/][0-1][0-9][-/]20[0-9]{2})\\b" #,
-        #"\\b([0-3]?[0-9][-/][[:alpha:]]{1,10}[-/]20[0-9]{2})\\b"
-      ), collapse = "|"
-      )
-    return(grepl(expresion_regular_fecha_date, texto))
-  }
-  
-  # Empleamos la función indicePrimeraFilDecimalTabla() para identificar la primera fila decimal
-  indice_fila_nombres <- indicePrimeraFilDecimalTabla(tabla)
-  # Subtabla previa a los valores decimales, y a la fila de nombres de columnas, por eso se resta 2
-  subtabla <- tabla[1:(indice_fila_nombres-2),]
-  # Determinamos las coincidencias en la subtabla
-  coincidencias <-
-    apply(
-      subtabla, 2,
-      function(fila) {
-        prueba_fecha_date(fila) | prueba_fecha_excel(fila) | (prueba_anio(fila) & prueba_mes(fila)) 
-      })
-  # Identificamos los indices de las entradas con coincidencias
-  indices_celda <- data.frame(which(coincidencias, arr.ind = TRUE))
-  # Exigimos que haya al menos un resultado
-  if ( length(indices_celda) > 0 ) {
-    # Especificamos la primera coincidencia
-    contenido_celda <- as.character(subtabla[indices_celda$row[1], indices_celda$col[1]])
-  } else {
-    cat("\nNo se pudo encontrar una fecha.\n")
-    break
-  } 
-  
-  # Establecemos el proceso directo para formatos de fecha
-  
-  if ( prueba_fecha_date(contenido_celda) ) {
-    
-    fecha_identificada <- parsedate::parse_date(contenido_celda)
-    
-    # Establecemos la condición para cuando el texto leído corresponde a fecha en formato numérico de Excel
-    
-  } else if ( prueba_fecha_excel(contenido_celda) ) {
-    
-    # Determinamos el valor de la celda buscada con la fecha de corte
-    num_fecha_corte <- as.numeric(contenido_celda)
-    # Determinamos la fecha de corte
-    fecha_identificada <- as.Date( num_fecha_corte, origin = "1899-12-30")
-    
-    # Establecemos el procedimiento para el caso de tener un mes y un año reconocibles
-    
-  } else if ( prueba_anio(contenido_celda) & prueba_mes(contenido_celda) ) {
-    
-    # Dividimos el texto original en sus componentes por si hubiera más de una fecha
-    texto_dividido <- unlist(strsplit(contenido_celda, " "))
-    # Establecemos el proceso cuando haya solo un año, solo un mes, y no más de un día del mes
-    if ( sum(prueba_anio(texto_dividido)) == 1 & 
-         sum(prueba_mes(texto_dividido)) == 1 & 
-         sum(prueba_dia(texto_dividido)) <= 1 ) {
-      fechas_reconocidas <- traductor_mes(contenido_celda)
-      fecha_identificada <- parsedate::parse_date(fechas_reconocidas)
-      # Establecemos el proceso cuando hay más de una fecha en la celda elegida
     } else {
-      # Traducimos el contenido de la celda elegida
-      fechas_reconocidas <- traductor_mes(contenido_celda)
-      # Empleamos un selector para el separador de frases, según formato
-      separadores_fechas <-
-        if ( grepl("-",contenido_celda, ignore.case = TRUE) ) {
-          " "
-        } else if ( grepl("de",contenido_celda, ignore.case = TRUE) ) {
-          c(" al "," hasta ")
-        }
-      # Separamos las diferentes frases relacionadas a fechas
-      fechas_reconocidas <- strsplit(fechas_reconocidas, separadores_fechas)[[1]]
-      # Agregamos un filtro para evitar frases sin el año
-      fechas_reconocidas <- fechas_reconocidas[prueba_anio(fechas_reconocidas)]
-      fechas_reconocidas <- parsedate::parse_date(fechas_reconocidas)
-      # Agregamos un filtro para elegir siempre la mayor de las fechas
-      fecha_identificada <- fechas_reconocidas[which.max(fechas_reconocidas)]
+      informacion_enlaces <- informacion_enlaces_data_frame
+    }
+    return(informacion_enlaces)
+  }
+  scraping_descarga_a <- function(pagina_html, informacion_enlaces_data_frame) {
+    nodos_descarga_entry_file <- pagina_html %>% html_nodes(".entry.file")
+    nodos_descarga_a <- pagina_html %>% html_nodes("a")
+    if ( length(nodos_descarga_entry_file) == 0 &
+         length(nodos_descarga_a) > 0
+    ) {
+      # informacion_enlaces <-
+      #   data.frame(enlaces_descarga = nodos_descarga_a %>% html_attr("href")) %>%
+      #   mutate(nombre_archivo = basename(enlaces_descarga))
+      enlaces_descarga <- nodos_descarga_a %>% html_attr("href")
+      informacion_enlaces <-
+        obtenerEnlacesDescarga(enlaces_descarga,"SB") %>%
+        rename(
+          fecha_acceso = "time",
+          enlace_descarga = "url",
+          nombre_archivo = "filename",
+          fecha_modificacion = "last_modified",
+          tamanio_archivo = "content_length"
+        )
+    } else {
+      informacion_enlaces <- informacion_enlaces_data_frame
+    }
+    return(informacion_enlaces)
+  }
+  scraping_descarga_error <- function(informacion_enlaces_data_frame) {
+    if ( nrow(informacion_enlaces_data_frame) == 0 ) {
+      stop(paste("\nEl proceso se ha interrumpido,",
+                 "el Web Scraping no pudo realizarse,",
+                 "la función 'descargarBoletinesFinancierosSB'",
+                 "requiere mantenimiento."))
     }
   }
+  directorioCarpetaDescarga <- function(ruta_archivo_html, nombre_archivo) {
+    directorio_carpeta <-
+      ruta_archivo_html %>%
+      gsub(".html", "",.) %>%
+      gsub("html/", "data/Descargas/",.)
+    anio_actual <- as.numeric(format(Sys.Date(), "%Y"))
+    expresion_regular_anios <- paste(seq(1990,anio_actual), collapse = "|")
+    prueba_anio <- grepl(expresion_regular_anios, directorio_carpeta)
+    if ( !prueba_anio ) {
+      nombre_carpeta <- gsub(".zip", "", nombre_archivo)
+      coincidencias_anio <- gregexpr(expresion_regular_anios, nombre_carpeta)
+      nombre_carpeta <- unlist(regmatches(nombre_carpeta, coincidencias_anio))
+      directorio_carpeta <- 
+        gsub(basename(directorio_carpeta), nombre_carpeta, directorio_carpeta)
+    }
+    crearDirectorio(directorio_carpeta)
+    return(directorio_carpeta)
+  }
   
-  # Determinamos el año
-  anio <- format(fecha_identificada, "%Y")
-  # Determinamos el mes
-  mes <- format(fecha_identificada, "%m")
-  # Determinamos una fecha preliminar
-  fecha_corte_preliminar <- paste(anio,mes,"01",sep = "-")
-  # Determinamos el último día del respectivo mes
-  fecha_corte <- as.Date(fecha_corte_preliminar) + months(1) - days(1)
+  pagina_html <- leer_pagina_html(ruta_archivo_html)
   
-  return(fecha_corte)
+  informacion_enlases_selecionados <- data.frame()
+  informacion_enlases_selecionados <- scraping_descarga_entry_file(pagina_html, informacion_enlases_selecionados)
+  informacion_enlases_selecionados <- scraping_descarga_a(pagina_html, informacion_enlases_selecionados)
+  scraping_descarga_error(informacion_enlases_selecionados)
+  
+  exportarReporteTabla(
+    dataFrame =  informacion_enlases_selecionados,
+    nombre_archivo =
+      paste("Reporte Enlaces de Descarga SB",
+            tools::file_path_sans_ext(basename(ruta_archivo_html))))
+  
+  #barraProgresoReinicio()
+  
+  for (k in 1:nrow(informacion_enlases_selecionados) ) {
+    link <- informacion_enlases_selecionados$enlace_descarga[k]
+    nombre_archivo <- informacion_enlases_selecionados$nombre_archivo[k]
+    directorio_descarga <-
+      directorioCarpetaDescarga(ruta_archivo_html, nombre_archivo)
+    ruta_archivo <- file.path(directorio_descarga, nombre_archivo)
+    #tamanio_archivo <- informacion_enlases_selecionados$tamanos_archivo[k]
+    if ( 
+      !file.exists(ruta_archivo) #| file.size(ruta_archivo) < tamanio_archivo
+    ) {
+      download.file(link, ruta_archivo, mode = "wb", timeout = 300)
+      cat("\033[1;32mSe descargó el archivo en la ruta:\033[0m",
+          "[", normalizePath(ruta_archivo),"]\n\n")
+      #barraProgreso(seq_along(download_links_elegidos))
+      #cat("Descargando... ")
+    }
+  }
+}
+
+ejecutarDescargaBoletinesFinancierosSB <- function() {
+  ruta_directorio_html_SB <- "html/SB/Boletines Financieros Mensuales"
+  rutas_archivos_html_SB <-
+    list.files(ruta_directorio_html_SB, recursive = TRUE, full.names = TRUE)
+  
+  ruta_directorio_html_SB_Privados <-
+    paste0(ruta_directorio_html_SB,"/Bancos Privados/",
+           format(Sys.Date(),"%Y"),".html")
+  ruta_directorio_html_SB_Publicas <-
+    paste0(ruta_directorio_html_SB,"/Instituciones Publicas/",
+           format(Sys.Date(),"%Y"),".html")
+  prueba_ruta_anio_actual <-
+    all(c(ruta_directorio_html_SB_Privados,
+          ruta_directorio_html_SB_Publicas) %in% rutas_archivos_html_SB)
+  if ( ! prueba_ruta_anio_actual  ) {
+    file.create(ruta_directorio_html_SB_Privados,
+                ruta_directorio_html_SB_Publicas)
+  }
+  
+  barraProgresoReinicio()
+  for (ruta in rutas_archivos_html_SB) {
+    descargarBoletinesFinancierosSB(ruta)
+    barraProgreso(rutas_archivos_html_SB)
+    cat("\033[1;32mAnalizando archivo html en la ruta:\033[0m [", ruta, "]\n\n")
+  }
 }
 
 modificarNombreColumnaSB <- function(tabla, precision = NULL, catalogo = NULL) {
@@ -1847,6 +1851,16 @@ hojaToTablaBoletinesFinancierosSB <- function(ruta_libro, nombre_hoja, fecha_cor
   
   requerirPaquetes("dplyr","readxl")
   
+  nombreHojaSimilar <- function(ruta_libro, nombre_hoja_buscado) {
+    
+    requerirPaquetes("readxl","stringdist")
+    
+    nombres_hojas <- readxl::excel_sheets(ruta_libro)
+    similitud <- stringdist::stringsimmatrix(nombre_hoja_buscado, nombres_hojas, method = "jw")
+    indice_hoja_similar <- which.max(similitud)
+    nombre_hoja_similar <- nombres_hojas[indice_hoja_similar]
+    return(nombre_hoja_similar)
+  }
   estandarizarNombreColumna <- function(tabla) {
     nombres_columnas_estandarizados <-
       tabla %>%
@@ -1939,40 +1953,29 @@ compilarHojasBalanceFinancieroSB <- function(ruta_directorio = NULL) {
       "data/Fuente/SB/Boletines Financieros Mensuales/Bancos Privados"
       #"data/Fuente/SB/Boletines Financieros Mensuales/Instituciones Publicas"
   }
-  # Determinamos los archivos presentes en directorio fuente
   archivos_directorio <- list.files(ruta_directorio, recursive = TRUE)
   # Descartamos los archivos con extensión zip
   #tiene_extension_zip <- tools::file_ext(archivos_directorio) == "zip"
   tiene_extension_zip <- grepl("\\.zip$", archivos_directorio)
   archivos_directorio <- archivos_directorio[!tiene_extension_zip]
-  # Determinamos todas las rutas de los archivos en el directorio
   rutas_libros <- file.path(ruta_directorio, archivos_directorio)
-  # Determinamos los archivos a transformar de formato
   rutas_transformar <- rutas_libros[tools::file_ext(rutas_libros) == "xlsb"]
   # Realizamos los cambios solo si son necesarios
   if ( length(rutas_transformar) > 0 ) {
-    # Cambiar el formato
     purrr::map(rutas_transformar, xlsb2xlsx)
-    # Volvemos a determinar los archivos presentes en directorio fuente
     archivos_directorio <- list.files(ruta_directorio, recursive = TRUE)
     # Volvemos a determinar todas las rutas de los archivos en el directorio luego del cambio de formato
     rutas_libros <- file.path(ruta_directorio, archivos_directorio)
   }
-  # Establecemos una prueba con expresión regular para filtrar los años 2013-2029
-  # prueba_anio <- grepl("(201[3-9])|(202[0-9])",rutas_libros)
   anio_actual <- as.numeric(format(Sys.Date(), "%Y"))
   expresion_regular_anios <- paste(seq(2013,anio_actual), collapse = "|")
   prueba_anio <- grepl(expresion_regular_anios,rutas_libros)
-  # Filtramos las rutas con los años establecidos
   rutas_libros_seleccionados <- rutas_libros[prueba_anio]
-  # Cerramos todos los libros seleccionados para que no generen ningún error al procesarlos
   cat("\n\nCerrando los los libros de Excel realacionados...\n")
   cerrarLibroExcel(rutas_libros_seleccionados)
-  # Limpiamos la barra de progreso
+  
   barraProgresoReinicio()
-  # Inicializamos la lista de las tablas concatenadas de BALANCE y PYG
   lista_tablas_BAL_PYG_fundidas <- list()
-  # Definimos el bucle de ejecución
   for ( ruta_libro in rutas_libros_seleccionados ) {
     hoja <-
       suppressMessages(
@@ -2002,36 +2005,31 @@ compilarHojasBalanceFinancieroSB <- function(ruta_directorio = NULL) {
 }
 
 agregarRUCenSB <- function(tabla, ruta_catalogo = NULL) {
-
   requerirPaquetes("dplyr","readxl","stringr")
   if ( is.null(ruta_catalogo) ) {
-    ruta_catalogo <- "data/Catalogos/Catalogo Operadores.xlsx"
+    ruta_catalogo <- "data/Catalogos/Catalogo RAZON_SOCIAL RUC SB.xlsx"
   }
-  precision <- 0.9
+  if ( ! file.exists(ruta_catalogo) ) {
+    stop("Error: no se pudo encontrar el catálogo [ Catalogo RAZON_SOCIAL RUC SB.xlsx ] en el directorio [ data/Catalogos/Catalogo RAZON_SOCIAL RUC SB.xlsx ]")
+  }
   catalogo <- readxl::read_excel(ruta_catalogo)
-  RAZON_SOCIAL_SB <- sort(unique(tabla$RAZON_SOCIAL))
-  RAZON_SOCIAL_catalogo <- catalogo$Operadora
-  distancia <-
-    stringdist::stringsimmatrix(
-      catalogo$Operadora, RAZON_SOCIAL_SB, method = "jw")
-  rownames(distancia) <- RAZON_SOCIAL_catalogo
-  colnames(distancia) <- RAZON_SOCIAL_SB
-  incidice_nombre_maximal <- apply(distancia, 2, which.max)
-  RUC_identificado <- catalogo$RUC[incidice_nombre_maximal]
-  distancia_maxima <-
-    sapply(seq_along(incidice_nombre_maximal),
-           function(k) distancia[incidice_nombre_maximal[k],
-                                 names(incidice_nombre_maximal[k])])
-  identificacion_RUC <-
-    data.frame(
-      "NombreEnSB" = RAZON_SOCIAL_SB,
-      "NombreEnCatalogo" = RAZON_SOCIAL_catalogo[incidice_nombre_maximal],
-      "RUC" = RUC_identificado,
-      "DistanciaJW" = distancia_maxima) %>%
-    dplyr::mutate(RUC = ifelse(DistanciaJW < precision, NA, RUC))
-  indice_correspondencia <- match(tabla$RAZON_SOCIAL, identificacion_RUC$NombreEnSB)
-  tabla$RUC <- identificacion_RUC$RUC[indice_correspondencia]
-  return(tabla)
+  RAZON_SOCIAL_tabla <- unique(tabla$RAZON_SOCIAL)
+  if ( all( RAZON_SOCIAL_tabla %in% catalogo$RAZON_SOCIAL ) ) {
+    indice_correspondencia <-
+      match(tabla$RAZON_SOCIAL, catalogo$RAZON_SOCIAL)
+    tabla$RUC <- catalogo$RUC[indice_correspondencia]
+    return(tabla)
+  }
+  if ( ! all( RAZON_SOCIAL_tabla %in% catalogo$RAZON_SOCIAL ) ) {
+    RAZON_SOCIAL_faltantes <- setdiff(RAZON_SOCIAL_tabla, catalogo$RAZON_SOCIAL)
+    mensaje_de_error <- paste(
+      "Eror en la función \"agregarRUCenSB\".",
+      "\nLa siguientes organizaciones no constan en el catálogo del directorio ",
+      "[", normalizePath(ruta_catalogo), "] :\n",
+      RAZON_SOCIAL_faltantes
+    )
+    stop(mensaje_de_error)
+  }
 }
 
 crearBalancesFinancierosSB <- function() {
@@ -2040,9 +2038,8 @@ crearBalancesFinancierosSB <- function() {
   
   requerirPaquetes("dplyr")
   
-  tic_general <- Sys.time()
-  
   # ETAPA 0: Descargar los "Boletines Financieros Mensuales" del portal de la SB ----
+  tic_general <- Sys.time()
   ejecutarDescargaBoletinesFinancierosSB() # Verificado en prueba 2023/06/09, crear una alternativa recursiva para error de descarga
   
   # ETAPA 1: Descompresión de los archivos descargados del portal de la SB ----
@@ -2066,8 +2063,7 @@ crearBalancesFinancierosSB <- function() {
   cat("\n\nConcatenando tablas y agregando RUC...\n")
   concatenada <-
     dplyr::bind_rows(privada, publica) %>%
-    #dplyr::distinct() %>%
-    dplyr::mutate(RAZON_SOCIAL =  as.character(RAZON_SOCIAL))  %>%
+    dplyr::distinct() %>%
     agregarRUCenSB() %>%
     dplyr::select(FECHA, SEGMENTO, RUC, RAZON_SOCIAL, CODIGO, CUENTA, VALOR)
   
@@ -2094,11 +2090,11 @@ crearBalancesFinancierosSB <- function() {
     
     irregularidades_CODIGO_CUENTA <-
       data_frame %>%
-      filter( grepl("^200$|^500$|^600$|^700$|[[:alpha:]]|^0$|\\+|-",CODIGO) ) %>% 
+      filter( grepl("^200$|^500$|^600$|^700$|[[:alpha:]]|^0$|\\+|-",CODIGO) |
+                is.na(CODIGO) | is.na(CUENTA) ) %>% 
       distinct(CODIGO,CUENTA)
     
-    exportarReporteTabla(irregularidades_CODIGO_CUENTA,
-                         "Irregularidades CODIGO CUENTA SB")
+    exportarReporteTabla(irregularidades_CODIGO_CUENTA,"Irregularidades CODIGO CUENTA SB")
     
     SB <-
       data_frame %>%
@@ -2130,29 +2126,43 @@ crearBalancesFinancierosSB <- function() {
       group_by(FECHA, SEGMENTO, RUC, RAZON_SOCIAL, CODIGO, CUENTA) %>%
       filter(if (any(is.na(VALOR)) & n() > 1) !is.na(VALOR) else TRUE) %>%
       ungroup()
+    
+    return(SB)
   }
   
   consolidada <-
-    concatenada %>% dplyr::distinct() %>%
+    concatenada %>%
+    dplyr::distinct() %>%
     dplyr::mutate(
-      `RAZON_SOCIAL` = estandarizarCadenaCaracteresSeparada(`RAZON_SOCIAL`),
-      `CUENTA` = estandarizarCadenaCaracteresSeparada(`CUENTA`)
+      RAZON_SOCIAL = estandarizarCadenaCaracteresSeparada(RAZON_SOCIAL),
+      CUENTA = estandarizarCadenaCaracteresSeparada(CUENTA)
     ) %>%
     dplyr::mutate(
-      `RAZON_SOCIAL` = correcionCaracteresSB(`RAZON_SOCIAL`),
-      `CUENTA` = correcionCaracteresSB(`CUENTA`)
+      RAZON_SOCIAL = correcionCaracteresSB(RAZON_SOCIAL),
+      CUENTA = correcionCaracteresSB(CUENTA)
     ) %>%
     depurarCodigoCuentaSB() %>%
     dplyr::distinct() %>%
-    dplyr::arrange(`FECHA`)
+    dplyr::arrange(FECHA)
   
-  # ETAPA 6: Exportación de base de datos generada ----
+  # ETAPA 6: Verificación de variables ----
+  fechas_de_corte <- concatenada %>% pull(FECHA) %>% unique() %>% sort()
+  diferencia_de_dias <- diff(fechas_de_corte) %>% as.numeric()
+  prueba_continuidad_temporal <- all(between(diferencia_de_dias,28,31))
+  if ( ! prueba_continuidad_temporal ) {
+    warning("Advertencia: No existe continuidad temporal entre fechas de corte")
+  }
+  
+  # ETAPA 7: Exportación de base de datos generada ----
   exportarResultadosCSV(consolidada,"SB Balances Financieros")
+  
   cat("\n\n  \033[1;34mDuración total del proceso \"Balances Financieros SB\":",
       formatoTiempoHMS(difftime(Sys.time(), tic_general, units = "secs")), "\033[0m\n")
   
   return(consolidada)
 }
+
+# SFN----
 
 fusionarBalancesSBEstadosSEPSFinancieros <- function() {
   
