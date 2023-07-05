@@ -657,7 +657,17 @@ correcionCaracteresVectorizadaSeparada <- function(texto_vector) {
   }
 } # EFICIENTE
 
+reemplazarTexto <- function(patron, reemplazo, texto_vector) {
+  requerirPaquetes("stats","stringr")
+  patron = as.character(patron)
+  reemplazo = as.character(reemplazo)
+  modificaciones <- stats::setNames(reemplazo, patron)
+  texto_modificado <- stringr::str_replace_all(texto_vector, modificaciones)
+  return(texto_modificado)
+}
+
 reemplazarTextoParticionado <- function(patron, reemplazo, texto_vector, n_partes = NULL) {
+  requerirPaquetes("stats","stringr")
   patron = as.character(patron)
   reemplazo = as.character(reemplazo)
   modificaciones <- stats::setNames(reemplazo, patron)
@@ -1515,6 +1525,23 @@ modificarNombreColumnaSEPS <- function(tabla, nombre_nuevo, ...) {
 
 generarListaTablasSEPS <- function() {
   requerirPaquetes("dplyr","readr")
+  leerArchivoPlano <- function(archivo) {
+    requerirPaquetes("readr","tidyr")
+    tryCatch({
+      readr::read_delim(archivo, guess_max = 1000)
+    }, error = function(e) {
+      library(tidyr)
+      tabla_mal_leida <- readr::read_delim(archivo, delim = "\t")
+      nombre_columnas_sin_separar <- names(tabla_mal_leida)
+      nombre_columnas <- str_split(nombre_columnas_sin_separar,"\t") %>% unlist()
+      tabla <-
+        tabla_mal_leida %>%
+        tidyr::separate(nombre_columnas_sin_separar, into = nombre_columnas, sep = "\t") %>%
+        mutate( SALDO = gsub(",",".",SALDO) )
+        #mutate(SALDO = gsub(",",".",SALDO) %>% as.numeric())
+    })
+  }
+  
   directorio_principal <- "data/Fuente/SEPS/Bases de Datos"
   archivos <-
     list.files(path = directorio_principal, full.names = TRUE, recursive = TRUE)
@@ -1526,7 +1553,8 @@ generarListaTablasSEPS <- function() {
     nombre_tabla <- basename(dirname(archivo))
     lista_tablas_SEPS[[nombre_tabla]] <-
       archivo %>%
-      readr::read_delim(., guess_max = 1000 ) %>%
+      #readr::read_delim(., guess_max = 1000 ) %>%
+      leerArchivoPlano() %>%
       modificarNombreColumnaSEPS(., nombre_nuevo = "FECHA", "fecha", "corte") %>%
       modificarNombreColumnaSEPS(., nombre_nuevo = "SEGMENTO", "segmento") %>%
       modificarNombreColumnaSEPS(., nombre_nuevo = "RUC", "ruc") %>%
@@ -1839,6 +1867,171 @@ modificarNombreColumnaSB <- function(tabla, precision = NULL, catalogo = NULL) {
   return(tabla)
 }
 
+# hojaToTablaBoletinesFinancierosSB <- function(ruta_libro, nombre_hoja, fecha_corte = NULL) {----
+#   
+#   # Esta función permite extraer la tabla de datos contenida en un hoja de cálculo correspondiente a los "Boletines Financieros mensuales" de la SB
+#   
+#   # ARGUMENTOS:
+#   # ruta_libro <- "data/Fuente/SB/PRIVADA/2023/FINANCIERO MENSUAL BANCA PRIVADA 2023_02.xlsx"
+#   # nombre_hoja <- "BALANCE"
+#   # fecha_corte <- "2023-02-29"
+#   # EJEMPLO: tabla <- hojaToTablaBoletinesFinancierosSB(ruta_libro, nombre_hoja, fecha_corte)
+#   
+#   requerirPaquetes("dplyr","readxl")
+#   
+#   nombreHojaSimilar <- function(ruta_libro, nombre_hoja_buscado) {
+#     
+#     requerirPaquetes("readxl","stringdist")
+#     
+#     nombres_hojas <- readxl::excel_sheets(ruta_libro)
+#     similitud <- stringdist::stringsimmatrix(nombre_hoja_buscado, nombres_hojas, method = "jw")
+#     indice_hoja_similar <- which.max(similitud)
+#     nombre_hoja_similar <- nombres_hojas[indice_hoja_similar]
+#     return(nombre_hoja_similar)
+#   }
+#   estandarizarNombreColumna <- function(tabla) {
+#     nombres_columnas_estandarizados <-
+#       tabla %>%
+#       colnames() %>%
+#       toupper() %>%
+#       chartr("[ÁÉÍÓÚ]", "[AEIOU]", .) %>%
+#       gsub(" {2,}"," ",.) %>%
+#       gsub("^ | $","",.)
+#     colnames(tabla) <- nombres_columnas_estandarizados
+#     return(tabla)
+#   }
+#   modificarTablaSB <- function(tabla, fecha_corte) {
+#     tabla_modificada <-
+#       tabla %>%
+#       estandarizarNombreColumna() %>%
+#       select( -matches("^[^[:alpha:]]+$", .) ) %>%
+#       filter_all( any_vars( ! is.na(.) ) ) %>%
+#       mutate(
+#         CODIGO = as.character(CODIGO),
+#         CUENTA = as.character(CUENTA)) %>%
+#       mutate_at( vars(-CODIGO, -CUENTA), as.numeric) %>%
+#       filter( ! is.na(CODIGO) & ! is.na(CUENTA) ) %>%
+#       mutate( FECHA = fecha_corte ) %>%
+#       select( FECHA, everything() )
+#     return(tabla_modificada)
+#   }
+# 
+#   nombre_hoja <- nombreHojaSimilar(ruta_libro, nombre_hoja)
+#   hoja <- suppressMessages(readxl::read_excel(ruta_libro, sheet = nombre_hoja, col_names = FALSE, n_max = 30))
+#   fecha_corte <-
+#     if ( is.null(fecha_corte) ) {
+#       # Determinamos la fecha más probable contenida en la hoja importada
+#       analisisDifusoNLPFechaCorte(hoja)
+#     } else {
+#       fecha_corte
+#     }
+#   indice_fila_nombres_columnas <- indicePrimeraFilDecimalTabla(hoja) - 1
+#   nombres_columnas <- unname(unlist(hoja[indice_fila_nombres_columnas,]))
+#   tabla_prueba <- suppressMessages(readxl::read_excel(ruta_libro, sheet = nombre_hoja, col_names = TRUE, skip = indice_fila_nombres_columnas, n_max = 20))
+#   # Verificamos si coinciden adecuadamente los nombres de las columnas
+#   if ( mean(nombres_columnas == names(tabla_prueba), na.rm = TRUE) < 0.8 ) {
+#     # Retrocedemos un índice en las filas previo a iterear para incluir cualquier caso exepcional
+#     indice_fila_nombres_columnas <- indice_fila_nombres_columnas - 2
+#     # Iteramos hasta que hayan coincidencias en al menos el 80%
+#     while ( mean(nombres_columnas == names(tabla_prueba), na.rm = TRUE) < 0.8 & indice_fila_nombres_columnas <= 20 ) {
+#       # Incrementamos el índice de la fila para continuar la prueba
+#       indice_fila_nombres_columnas <- indice_fila_nombres_columnas + 1
+#       # Reimportamos la tabla de prueba para verificar la correcta asignación de los nombres de las columnas en sus 20 primeras filas
+#       tabla_prueba <- suppressMessages(readxl::read_excel(ruta_libro, sheet = nombre_hoja, col_names = TRUE, skip = indice_fila_nombres_columnas, n_max = 20))
+#     }
+#   }
+#   advertencias <- NULL
+#   # Volvemos a importar la hoja de cálculo pero especificando la fija de inicio, para que se reconozca el tipo de dato y nombre de cada columna
+#   tabla <-
+#     # Usamos withCallingHandlers() para capturar las advertencias generadas durante la ejecución del código y almacenarlas en una variable
+#     withCallingHandlers(
+#       # Importamos únicamente la tabla de datos contenida en la hoja especificada, saltando las primeras filas
+#       suppressMessages(
+#         readxl::read_excel(ruta_libro,
+#                            sheet = nombre_hoja,
+#                            col_names = TRUE,
+#                            skip = indice_fila_nombres_columnas)),
+#       # Empleamos una función como manejador de advertencias
+#       warning = function(w) {
+#         # La función toma un argumento w, que es un objeto de advertencia que contiene información sobre la advertencia generada
+#         advertencias <<- c(advertencias, w$message)
+#         # Suprimimos la advertencia y evitamos que la advertencia se muestre en la consola y permite que el código continúe ejecutándose normalmente
+#         invokeRestart("muffleWarning")
+#       }
+#     )
+#   # Agregamos las advertencias como un atributo de la tabla
+#   attr(tabla, "advertencias") <- advertencias
+#   # Agregamos la columna con la fecha del "Boletín Financiero mensual"
+#   tabla_modificada <- modificarTablaSB(tabla, fecha_corte)
+#   
+#   return(tabla_modificada)
+# }----
+# 
+# compilarHojasBalanceFinancieroSB <- function(ruta_directorio = NULL) {----
+#   
+#   # Esta función realiza todo el proceso necesario para crear la base de datos de los Balances Financieros mensuales de la SB
+#   
+#   requerirPaquetes("dplyr","purrr","readxl","reshape2","tools")
+#   
+#   # # Cerramos todos los libros de Excel abiertos
+#   # system2("powershell", "Get-Process excel | Foreach-Object { $_.CloseMainWindow() }")
+#   # Establecemos la ruta del directorio fuente de los libros de Excel con los "Boletines Financieros mensuales"
+#   if ( is.null(ruta_directorio) ) {
+#     ruta_directorio <-
+#       "data/Fuente/SB/Boletines Financieros Mensuales/Bancos Privados"
+#       #"data/Fuente/SB/Boletines Financieros Mensuales/Instituciones Publicas"
+#   }
+#   archivos_directorio <- list.files(ruta_directorio, recursive = TRUE)
+#   # Descartamos los archivos con extensión zip
+#   #tiene_extension_zip <- tools::file_ext(archivos_directorio) == "zip"
+#   tiene_extension_zip <- grepl("\\.zip$", archivos_directorio)
+#   archivos_directorio <- archivos_directorio[!tiene_extension_zip]
+#   rutas_libros <- file.path(ruta_directorio, archivos_directorio)
+#   rutas_transformar <- rutas_libros[tools::file_ext(rutas_libros) == "xlsb"]
+#   # Realizamos los cambios solo si son necesarios
+#   if ( length(rutas_transformar) > 0 ) {
+#     purrr::map(rutas_transformar, xlsb2xlsx)
+#     archivos_directorio <- list.files(ruta_directorio, recursive = TRUE)
+#     # Volvemos a determinar todas las rutas de los archivos en el directorio luego del cambio de formato
+#     rutas_libros <- file.path(ruta_directorio, archivos_directorio)
+#   }
+#   anio_actual <- as.numeric(format(Sys.Date(), "%Y"))
+#   expresion_regular_anios <- paste(seq(2013,anio_actual), collapse = "|")
+#   prueba_anio <- grepl(expresion_regular_anios,rutas_libros)
+#   rutas_libros_seleccionados <- rutas_libros[prueba_anio]
+#   cat("\n\nCerrando los los libros de Excel realacionados...\n")
+#   cerrarLibroExcel(rutas_libros_seleccionados)
+#   
+#   barraProgresoReinicio()
+#   lista_tablas_BAL_PYG_fundidas <- list()
+#   for ( ruta_libro in rutas_libros_seleccionados ) {
+#     hoja <-
+#       suppressMessages(
+#         readxl::read_excel(ruta_libro, sheet = "BALANCE", n_max = 20))
+#     fecha_corte <- analisisDifusoNLPFechaCorte(hoja)
+#     tabla_BAL <-
+#       hojaToTablaBoletinesFinancierosSB(ruta_libro, "BALANCE", fecha_corte)
+#     tabla_PYG <-
+#       hojaToTablaBoletinesFinancierosSB(ruta_libro, "PYG", fecha_corte)
+#     nombre_tabla <- basename(ruta_libro)
+#     lista_tablas_BAL_PYG_fundidas[[nombre_tabla]] <-
+#       dplyr::bind_rows(tabla_BAL,tabla_PYG) %>%
+#       reshape2::melt(.,
+#                      id.vars = colnames(.)[1:3],
+#                      variable.name = "RAZON_SOCIAL",
+#                      value.name = "VALOR")
+#     barraProgreso(rutas_libros_seleccionados)
+#     cat("\033[1;32mImportando y procesando el archivo:\033[0m",
+#         "[", normalizePath(ruta_libro), "]\n")
+#   }
+#   
+#   tabla_BAL_PYG <-
+#     dplyr::bind_rows(lista_tablas_BAL_PYG_fundidas) %>%
+#     dplyr::mutate(RAZON_SOCIAL = as.character(RAZON_SOCIAL))
+#   
+#   return(tabla_BAL_PYG)
+# }----
+
 hojaToTablaBoletinesFinancierosSB <- function(ruta_libro, nombre_hoja, fecha_corte = NULL) {
   
   # Esta función permite extraer la tabla de datos contenida en un hoja de cálculo correspondiente a los "Boletines Financieros mensuales" de la SB
@@ -1852,9 +2045,7 @@ hojaToTablaBoletinesFinancierosSB <- function(ruta_libro, nombre_hoja, fecha_cor
   requerirPaquetes("dplyr","readxl")
   
   nombreHojaSimilar <- function(ruta_libro, nombre_hoja_buscado) {
-    
     requerirPaquetes("readxl","stringdist")
-    
     nombres_hojas <- readxl::excel_sheets(ruta_libro)
     similitud <- stringdist::stringsimmatrix(nombre_hoja_buscado, nombres_hojas, method = "jw")
     indice_hoja_similar <- which.max(similitud)
@@ -1872,22 +2063,57 @@ hojaToTablaBoletinesFinancierosSB <- function(ruta_libro, nombre_hoja, fecha_cor
     colnames(tabla) <- nombres_columnas_estandarizados
     return(tabla)
   }
+  estandarizarRectificarCODIGO <- function(tabla) {
+    tabla_CODIGO_estandarizado <-
+      tabla %>%
+      filter( ! grepl("^200$|^500$|^600$|^700$|[[:alpha:]]|^0$|\\+|-",CODIGO) ) %>% # tabla %>% filter( grepl("^200$|^500$|^600$|^700$|[[:alpha:]]|^0$|\\+|-",CODIGO) ) %>% View()
+      mutate( CODIGO = reemplazarTexto(c(100,300,400),c(1,2,3),CODIGO),
+              CUENTA = 
+                reemplazarTexto(
+                  c("^ACTIVO$","^TOTAL ACTIVO$","^TOTAL ACTIVOS$","^PASIVO$","^TOTAL PASIVO$","^TOTAL PASIVOS$","^TOTAL PATRIMONIO$","^TOTAL INGRESOS$"),
+                  c("ACTIVOS","ACTIVOS","ACTIVOS","PASIVOS","PASIVOS","PASIVOS","PATRIMONIO","INGRESOS"),
+                  CUENTA) )
+    
+    catalogo_CODIGO_SB <-
+      tabla_CODIGO_estandarizado %>%
+      group_by(CODIGO, CUENTA) %>%
+      #summarise(CANTIDAD = n()) %>% # innecesario y produce advertencia
+      filter( grepl("^[0-9]+$", CODIGO) ) %>%
+      mutate( CODIGO = as.integer(CODIGO) ) %>%
+      filter( CODIGO > 0 )
+    
+    indices_completar <- match(tabla_CODIGO_estandarizado$CUENTA, catalogo_CODIGO_SB$CUENTA)
+    
+    tabla_CODIGO_rectificado <-
+      tabla_CODIGO_estandarizado %>%
+      mutate( CODIGO = ifelse(is.na(CODIGO), catalogo_CODIGO_SB$CODIGO[indices_completar], CODIGO) ) %>%
+      mutate( SUMA = select(.,-CODIGO,-CUENTA) %>% rowSums(na.rm = TRUE) ) %>%
+      group_by(CODIGO, CUENTA) %>%
+      filter(SUMA == max(SUMA)) %>%
+      select( -SUMA ) %>%
+      filter( ! is.na(CODIGO) ) %>%
+      distinct() %>%
+      arrange(CODIGO)
+    
+    return(tabla_CODIGO_rectificado)
+  }
   modificarTablaSB <- function(tabla, fecha_corte) {
     tabla_modificada <-
       tabla %>%
       estandarizarNombreColumna() %>%
       select( -matches("^[^[:alpha:]]+$", .) ) %>%
-      filter_all( any_vars( ! is.na(.) ) ) %>%
+      filter_all( any_vars( ! is.na(.) & . != 0 ) ) %>%
       mutate(
         CODIGO = as.character(CODIGO),
         CUENTA = as.character(CUENTA)) %>%
       mutate_at( vars(-CODIGO, -CUENTA), as.numeric) %>%
-      filter( ! is.na(CODIGO) & ! is.na(CUENTA) ) %>%
+      filter( ! ( is.na(CODIGO) & is.na(CUENTA) ) ) %>%
+      estandarizarRectificarCODIGO() %>%
       mutate( FECHA = fecha_corte ) %>%
       select( FECHA, everything() )
     return(tabla_modificada)
   }
-
+  
   nombre_hoja <- nombreHojaSimilar(ruta_libro, nombre_hoja)
   hoja <- suppressMessages(readxl::read_excel(ruta_libro, sheet = nombre_hoja, col_names = FALSE, n_max = 30))
   fecha_corte <-
@@ -1950,8 +2176,7 @@ compilarHojasBalanceFinancieroSB <- function(ruta_directorio = NULL) {
   # Establecemos la ruta del directorio fuente de los libros de Excel con los "Boletines Financieros mensuales"
   if ( is.null(ruta_directorio) ) {
     ruta_directorio <-
-      "data/Fuente/SB/Boletines Financieros Mensuales/Bancos Privados"
-      #"data/Fuente/SB/Boletines Financieros Mensuales/Instituciones Publicas"
+      "data/Fuente/SB/Boletines Financieros Mensuales"
   }
   archivos_directorio <- list.files(ruta_directorio, recursive = TRUE)
   # Descartamos los archivos con extensión zip
@@ -1976,6 +2201,8 @@ compilarHojasBalanceFinancieroSB <- function(ruta_directorio = NULL) {
   
   barraProgresoReinicio()
   lista_tablas_BAL_PYG_fundidas <- list()
+  lista_tablas_BAL_PYG <- list()
+  # DESARROLLO - PRUEBAS
   for ( ruta_libro in rutas_libros_seleccionados ) {
     hoja <-
       suppressMessages(
@@ -2026,9 +2253,13 @@ agregarRUCenSB <- function(tabla, ruta_catalogo = NULL) {
       "Eror en la función \"agregarRUCenSB\".",
       "\nLa siguientes organizaciones no constan en el catálogo del directorio ",
       "[", normalizePath(ruta_catalogo), "] :\n",
-      RAZON_SOCIAL_faltantes
+      RAZON_SOCIAL_faltantes,
+      "\nPor favor diríjase al directorio mencionado, actualice el catálogo y",
+      "\033[1;31m",toupper("vuelva a ejecutar el proyecto."),"\n"
     )
     stop(mensaje_de_error)
+    Sys.sleep(2)
+    shell.exec(normalizePath(ruta_catalogo))
   }
 }
 
@@ -2084,51 +2315,51 @@ crearBalancesFinancierosSB <- function() {
       particionarModificacion(correcciones, texto_vector)
     return(texto_vector_corregido)
   }
-  depurarCodigoCuentaSB <- function(data_frame) {
-    
-    requerirPaquetes("dplyr")
-    
-    irregularidades_CODIGO_CUENTA <-
-      data_frame %>%
-      filter( grepl("^200$|^500$|^600$|^700$|[[:alpha:]]|^0$|\\+|-",CODIGO) |
-                is.na(CODIGO) | is.na(CUENTA) ) %>% 
-      distinct(CODIGO,CUENTA)
-    
-    exportarReporteTabla(irregularidades_CODIGO_CUENTA,"Irregularidades CODIGO CUENTA SB")
-    
-    SB <-
-      data_frame %>%
-      filter( ! grepl("^200$|^500$|^600$|^700$|[[:alpha:]]|^0$|\\+|-",CODIGO) ) %>%
-      mutate( CODIGO = reemplazarTextoParticionado(c(100,300,400),c(1,2,3),CODIGO))
-    
-    catalogo_CODIGO_SB <-
-      data_frame %>%
-      group_by(CODIGO, CUENTA) %>%
-      summarise(CANTIDAD = n()) %>%
-      filter( grepl("^[0-9]+$", CODIGO) ) %>%
-      mutate( CODIGO = as.integer(CODIGO) ) %>%
-      filter( CODIGO > 0 )
-    
-    indices <- match(SB$CUENTA, catalogo_CODIGO_SB$CUENTA)
-    
-    SB <- SB %>%
-      mutate( CODIGO = ifelse(is.na(CODIGO), catalogo_CODIGO_SB$CODIGO[indices], CODIGO)) %>%
-      filter( ! is.na(CODIGO) ) %>%
-      mutate( CODIGO = as.integer(CODIGO) ) %>%
-      mutate( CUENTA = 
-                reemplazarTextoParticionado(
-                  c("^ACTIVO$","^TOTAL ACTIVO$","^TOTAL ACTIVOS$","^PASIVO$","^TOTAL PASIVO$","^TOTAL PASIVOS$","^TOTAL PATRIMONIO$","^TOTAL INGRESOS$"),
-                  c("ACTIVOS","ACTIVOS","ACTIVOS","PASIVOS","PASIVOS","PASIVOS","PATRIMONIO","INGRESOS"),
-                  CUENTA) ) %>%
-      distinct()
-    
-    SB <- SB %>%
-      group_by(FECHA, SEGMENTO, RUC, RAZON_SOCIAL, CODIGO, CUENTA) %>%
-      filter(if (any(is.na(VALOR)) & n() > 1) !is.na(VALOR) else TRUE) %>%
-      ungroup()
-    
-    return(SB)
-  }
+  # depurarCodigoCuentaSB <- function(data_frame) {----
+  #   
+  #   requerirPaquetes("dplyr")
+  #   
+  #   irregularidades_CODIGO_CUENTA <-
+  #     data_frame %>%
+  #     filter( grepl("^200$|^500$|^600$|^700$|[[:alpha:]]|^0$|\\+|-",CODIGO) |
+  #               is.na(CODIGO) | is.na(CUENTA) ) %>% 
+  #     distinct(CODIGO,CUENTA)
+  #   
+  #   exportarReporteTabla(irregularidades_CODIGO_CUENTA,"Irregularidades CODIGO CUENTA SB")
+  #   
+  #   SB <-
+  #     data_frame %>%
+  #     filter( ! grepl("^200$|^500$|^600$|^700$|[[:alpha:]]|^0$|\\+|-",CODIGO) ) %>%
+  #     mutate( CODIGO = reemplazarTextoParticionado(c(100,300,400),c(1,2,3),CODIGO))
+  #   
+  #   catalogo_CODIGO_SB <-
+  #     data_frame %>%
+  #     group_by(CODIGO, CUENTA) %>%
+  #     summarise(CANTIDAD = n()) %>%
+  #     filter( grepl("^[0-9]+$", CODIGO) ) %>%
+  #     mutate( CODIGO = as.integer(CODIGO) ) %>%
+  #     filter( CODIGO > 0 )
+  #   
+  #   indices <- match(SB$CUENTA, catalogo_CODIGO_SB$CUENTA)
+  #   
+  #   SB <- SB %>%
+  #     mutate( CODIGO = ifelse(is.na(CODIGO), catalogo_CODIGO_SB$CODIGO[indices], CODIGO)) %>%
+  #     filter( ! is.na(CODIGO) ) %>%
+  #     mutate( CODIGO = as.integer(CODIGO) ) %>%
+  #     mutate( CUENTA = 
+  #               reemplazarTextoParticionado(
+  #                 c("^ACTIVO$","^TOTAL ACTIVO$","^TOTAL ACTIVOS$","^PASIVO$","^TOTAL PASIVO$","^TOTAL PASIVOS$","^TOTAL PATRIMONIO$","^TOTAL INGRESOS$"),
+  #                 c("ACTIVOS","ACTIVOS","ACTIVOS","PASIVOS","PASIVOS","PASIVOS","PATRIMONIO","INGRESOS"),
+  #                 CUENTA) ) %>%
+  #     distinct()
+  #   
+  #   SB <- SB %>%
+  #     group_by(FECHA, SEGMENTO, RUC, RAZON_SOCIAL, CODIGO, CUENTA) %>%
+  #     filter(if (any(is.na(VALOR)) & n() > 1) !is.na(VALOR) else TRUE) %>%
+  #     ungroup()
+  #   
+  #   return(SB)
+  # }----
   
   consolidada <-
     concatenada %>%
@@ -2139,9 +2370,10 @@ crearBalancesFinancierosSB <- function() {
     ) %>%
     dplyr::mutate(
       RAZON_SOCIAL = correcionCaracteresSB(RAZON_SOCIAL),
-      CUENTA = correcionCaracteresSB(CUENTA)
+      CUENTA = correcionCaracteresSB(CUENTA),
+      VALOR = 1000*VALOR
     ) %>%
-    depurarCodigoCuentaSB() %>%
+    #depurarCodigoCuentaSB() %>%
     dplyr::distinct() %>%
     dplyr::arrange(FECHA)
   
@@ -2181,8 +2413,8 @@ fusionarBalancesSBEstadosSEPSFinancieros <- function() {
   
   requerirPaquetes()
   
-  SB <- crearBalancesFinancierosSB() # Verificado en prueba 2023/06/29
-  SEPS <- crearEstadosFinancierosSEPS() # Verificado en prueba 2023/06/26
+  SB <- crearBalancesFinancierosSB() # Verificado en prueba 2023/07/05
+  SEPS <- crearEstadosFinancierosSEPS() # Verificado en prueba 2023/07/05
   BEF <- rbind(SEPS, SB)
   
   exportarEstadosFinancierosSEPSmensualSIEVA() # Verificado en prueba 2023/06/16

@@ -29,20 +29,54 @@ hojaToTablaBoletinesFinancierosSB <- function(ruta_libro, nombre_hoja, fecha_cor
     colnames(tabla) <- nombres_columnas_estandarizados
     return(tabla)
   }
+  estandarizarRectificarCODIGO <- function(tabla) {
+    tabla_CODIGO_estandarizado <-
+      tabla %>%
+      filter( ! grepl("^200$|^500$|^600$|^700$|[[:alpha:]]|^0$|\\+|-",CODIGO) ) %>% # tabla %>% filter( grepl("^200$|^500$|^600$|^700$|[[:alpha:]]|^0$|\\+|-",CODIGO) ) %>% View()
+      mutate( CODIGO = reemplazarTexto(c(100,300,400),c(1,2,3),CODIGO),
+              CUENTA = 
+                reemplazarTexto(
+                  c("^ACTIVO$","^TOTAL ACTIVO$","^TOTAL ACTIVOS$","^PASIVO$","^TOTAL PASIVO$","^TOTAL PASIVOS$","^TOTAL PATRIMONIO$","^TOTAL INGRESOS$"),
+                  c("ACTIVOS","ACTIVOS","ACTIVOS","PASIVOS","PASIVOS","PASIVOS","PATRIMONIO","INGRESOS"),
+                  CUENTA) )
+    
+    catalogo_CODIGO_SB <-
+      tabla_CODIGO_estandarizado %>%
+      group_by(CODIGO, CUENTA) %>%
+      #summarise(CANTIDAD = n()) %>% # innecesario y produce advertencia
+      filter( grepl("^[0-9]+$", CODIGO) ) %>%
+      mutate( CODIGO = as.integer(CODIGO) ) %>%
+      filter( CODIGO > 0 )
+    
+    indices_completar <- match(tabla_CODIGO_estandarizado$CUENTA, catalogo_CODIGO_SB$CUENTA)
+    
+    tabla_CODIGO_rectificado <-
+      tabla_CODIGO_estandarizado %>%
+      mutate( CODIGO = ifelse(is.na(CODIGO), catalogo_CODIGO_SB$CODIGO[indices_completar], CODIGO) ) %>%
+      mutate( SUMA = select(.,-CODIGO,-CUENTA) %>% rowSums(na.rm = TRUE) ) %>%
+      group_by(CODIGO, CUENTA) %>%
+      filter(SUMA == max(SUMA)) %>%
+      select( -SUMA ) %>%
+      filter( ! is.na(CODIGO) ) %>%
+      distinct() %>%
+      arrange(CODIGO)
+    
+    return(tabla_CODIGO_rectificado)
+  }
   modificarTablaSB <- function(tabla, fecha_corte) {
     tabla_modificada <-
       tabla %>%
       estandarizarNombreColumna() %>%
       select( -matches("^[^[:alpha:]]+$", .) ) %>%
-      #filter_all( any_vars( ! is.na(.) ) ) %>%
       filter_all( any_vars( ! is.na(.) & . != 0 ) ) %>%
       mutate(
         CODIGO = as.character(CODIGO),
         CUENTA = as.character(CUENTA)) %>%
       mutate_at( vars(-CODIGO, -CUENTA), as.numeric) %>%
-      filter( ! ( is.na(CODIGO) & is.na(CUENTA) ) ) #%>%
-      # mutate( FECHA = fecha_corte ) %>%
-      # select( FECHA, everything() )
+      filter( ! ( is.na(CODIGO) & is.na(CUENTA) ) ) %>%
+      estandarizarRectificarCODIGO() %>%
+      mutate( FECHA = fecha_corte ) %>%
+      select( FECHA, everything() )
     return(tabla_modificada)
   }
   
@@ -108,8 +142,8 @@ compilarHojasBalanceFinancieroSB <- function(ruta_directorio = NULL) {
   # Establecemos la ruta del directorio fuente de los libros de Excel con los "Boletines Financieros mensuales"
   if ( is.null(ruta_directorio) ) {
     ruta_directorio <-
-      #"data/Fuente/SB/Boletines Financieros Mensuales"
-      "data/Fuente/SB/Boletines Financieros Mensuales/Bancos Privados"
+      "data/Fuente/SB/Boletines Financieros Mensuales"
+      #"data/Fuente/SB/Boletines Financieros Mensuales/Bancos Privados"
       #"data/Fuente/SB/Boletines Financieros Mensuales/Instituciones Publicas"
   }
   archivos_directorio <- list.files(ruta_directorio, recursive = TRUE)
@@ -137,7 +171,7 @@ compilarHojasBalanceFinancieroSB <- function(ruta_directorio = NULL) {
   lista_tablas_BAL_PYG_fundidas <- list()
   lista_tablas_BAL_PYG <- list()
   # DESARROLLO - PRUEBAS
-  for ( ruta_libro in rutas_libros_seleccionados[1:2] ) {
+  for ( ruta_libro in rutas_libros_seleccionados ) {
     hoja <-
       suppressMessages(
         readxl::read_excel(ruta_libro, sheet = "BALANCE", n_max = 20))
@@ -174,7 +208,7 @@ data_frame <- lista_tablas_BAL_PYG[[1]]
 
 SB <-
   data_frame %>%
-  filter( ! grepl("^200$|^500$|^600$|^700$|[[:alpha:]]|^0$|\\+|-",CODIGO) ) %>%
+  filter( ! grepl("^200$|^500$|^600$|^700$|[[:alpha:]]|^0$|\\+|-",CODIGO) ) %>% # data_frame %>% filter( grepl("^200$|^500$|^600$|^700$|[[:alpha:]]|^0$|\\+|-",CODIGO) ) %>% View()
   mutate( CODIGO = reemplazarTextoParticionado(c(100,300,400),c(1,2,3),CODIGO),
           CUENTA = 
             reemplazarTextoParticionado(
@@ -191,23 +225,48 @@ catalogo_CODIGO_SB <-
   filter( CODIGO > 0 )
 
 indices <- match(SB$CUENTA, catalogo_CODIGO_SB$CUENTA)
-SB$CODIGO[indices] <- catalogo_CODIGO_SB$CODIGO[indices]
 
-SB <- SB %>%
-  #mutate( CODIGO = ifelse(is.na(CODIGO), catalogo_CODIGO_SB$CODIGO[indices], CODIGO)) %>%
-  mutate( CODIGO = as.integer(CODIGO) ) %>%
-  filter( ! is.na(CODIGO) ) 
+# SB_ <- SB %>%
+#   mutate( CODIGO = ifelse(is.na(CODIGO), catalogo_CODIGO_SB$CODIGO[indices], CODIGO) ) %>%
+#   mutate( CODIGO = as.integer(CODIGO) ) %>% #distinct()  %>%
+#   group_by(CODIGO, CUENTA) %>%
+#   filter(row_number() == n()) %>%
+#   arrange(CODIGO)
+
+SB_ <- SB %>%
+  mutate( CODIGO = ifelse(is.na(CODIGO), catalogo_CODIGO_SB$CODIGO[indices], CODIGO) ) %>%
+  #mutate( SUMA = select(., 3, ncol(.)) %>% rowSums(na.rm = TRUE) )
+  #mutate( SUMA = .[,-c(1,2)] %>% rowSums(na.rm = TRUE) )
+  mutate( SUMA = select(.,-CODIGO,-CUENTA) %>% rowSums(na.rm = TRUE) ) %>%
+  group_by(CODIGO, CUENTA) %>%
+  filter(SUMA == max(SUMA)) %>%
+  select( -SUMA ) %>%
+  filter( ! is.na(CODIGO) ) %>%
+  distinct() %>%
+  arrange(CODIGO) %>%
+  #
+  mutate( FECHA = fecha_corte ) %>%
+  select( FECHA, everything() )
+
+# ----
+
+SB_[2, 3:36] %>% sum(na.rm = TRUE)
+SB_[, 3:36] %>% rowSums(na.rm = TRUE)
+sum(SB_[2,-c(1,2)],na.rm = TRUE)
+
 
 # esto es para tabla derretida
 
-SB_derretido <- SB %>%
+SB_derretido <- SB_ %>%
   reshape2::melt(.,
-                 id.vars = colnames(.)[1:2],
+                 id.vars = colnames(.)[1:3],
                  variable.name = "RAZON_SOCIAL",
                  value.name = "VALOR") %>%
-  group_by(RAZON_SOCIAL, CODIGO, CUENTA) %>%
-  filter(if (any(is.na(VALOR)) & n() > 1) !is.na(VALOR) else TRUE) %>%
-  ungroup()
+  group_by(FECHA, RAZON_SOCIAL, CODIGO, CUENTA) %>%
+  #filter(if (any(is.na(VALOR)) & n() > 1) !is.na(VALOR) else TRUE) %>%
+  ungroup() %>%
+  agregarRUCenSB() %>%
+  select("FECHA", "CODIGO", "CUENTA", "RUC", "RAZON_SOCIAL", "VALOR")
 
 
 
