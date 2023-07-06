@@ -1594,6 +1594,12 @@ crearEstadosFinancierosSEPS <- function() {
     lista_SEPS %>%
     dplyr::bind_rows() %>%
     dplyr::distinct() %>%
+    # Corrección a CUENTA faltante para el CODIGO 3304, tomada de:
+    # https://www.seps.gob.ec/wp-content/uploads/01.-Manual-Te%CC%81cnico-Formulario-de-Solvencia_PTS_03abr2023_VersionFinal_V5.0.pdf
+    dplyr::mutate(
+      CUENTA = ifelse(CODIGO == 3304 & is.na(CUENTA),
+                      toupper("Reserva Legal Irrepartible"), CUENTA)
+    ) %>%
     dplyr::mutate(
       `RAZON_SOCIAL` = estandarizarCadenaCaracteresSeparada(`RAZON_SOCIAL`),
       `CUENTA` = estandarizarCadenaCaracteresSeparada(`CUENTA`)
@@ -2315,51 +2321,6 @@ crearBalancesFinancierosSB <- function() {
       particionarModificacion(correcciones, texto_vector)
     return(texto_vector_corregido)
   }
-  # depurarCodigoCuentaSB <- function(data_frame) {----
-  #   
-  #   requerirPaquetes("dplyr")
-  #   
-  #   irregularidades_CODIGO_CUENTA <-
-  #     data_frame %>%
-  #     filter( grepl("^200$|^500$|^600$|^700$|[[:alpha:]]|^0$|\\+|-",CODIGO) |
-  #               is.na(CODIGO) | is.na(CUENTA) ) %>% 
-  #     distinct(CODIGO,CUENTA)
-  #   
-  #   exportarReporteTabla(irregularidades_CODIGO_CUENTA,"Irregularidades CODIGO CUENTA SB")
-  #   
-  #   SB <-
-  #     data_frame %>%
-  #     filter( ! grepl("^200$|^500$|^600$|^700$|[[:alpha:]]|^0$|\\+|-",CODIGO) ) %>%
-  #     mutate( CODIGO = reemplazarTextoParticionado(c(100,300,400),c(1,2,3),CODIGO))
-  #   
-  #   catalogo_CODIGO_SB <-
-  #     data_frame %>%
-  #     group_by(CODIGO, CUENTA) %>%
-  #     summarise(CANTIDAD = n()) %>%
-  #     filter( grepl("^[0-9]+$", CODIGO) ) %>%
-  #     mutate( CODIGO = as.integer(CODIGO) ) %>%
-  #     filter( CODIGO > 0 )
-  #   
-  #   indices <- match(SB$CUENTA, catalogo_CODIGO_SB$CUENTA)
-  #   
-  #   SB <- SB %>%
-  #     mutate( CODIGO = ifelse(is.na(CODIGO), catalogo_CODIGO_SB$CODIGO[indices], CODIGO)) %>%
-  #     filter( ! is.na(CODIGO) ) %>%
-  #     mutate( CODIGO = as.integer(CODIGO) ) %>%
-  #     mutate( CUENTA = 
-  #               reemplazarTextoParticionado(
-  #                 c("^ACTIVO$","^TOTAL ACTIVO$","^TOTAL ACTIVOS$","^PASIVO$","^TOTAL PASIVO$","^TOTAL PASIVOS$","^TOTAL PATRIMONIO$","^TOTAL INGRESOS$"),
-  #                 c("ACTIVOS","ACTIVOS","ACTIVOS","PASIVOS","PASIVOS","PASIVOS","PATRIMONIO","INGRESOS"),
-  #                 CUENTA) ) %>%
-  #     distinct()
-  #   
-  #   SB <- SB %>%
-  #     group_by(FECHA, SEGMENTO, RUC, RAZON_SOCIAL, CODIGO, CUENTA) %>%
-  #     filter(if (any(is.na(VALOR)) & n() > 1) !is.na(VALOR) else TRUE) %>%
-  #     ungroup()
-  #   
-  #   return(SB)
-  # }----
   
   consolidada <-
     concatenada %>%
@@ -2373,7 +2334,6 @@ crearBalancesFinancierosSB <- function() {
       CUENTA = correcionCaracteresSB(CUENTA),
       VALOR = 1000*VALOR
     ) %>%
-    #depurarCodigoCuentaSB() %>%
     dplyr::distinct() %>%
     dplyr::arrange(FECHA)
   
