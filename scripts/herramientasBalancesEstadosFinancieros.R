@@ -9,7 +9,7 @@ requerirPaquetes <- function(...) {
       "lubridate",
       "openxlsx",
       "parallel", "parsedate", "purrr",
-      "readr", "readxl", "reshape2", "rlang", "rvest",
+      "readr", "readxl", "reshape2", "rvest",
       "stats", "stringdist", "stringr",  
       "tools",
       "utils"
@@ -93,7 +93,8 @@ exportarProyecto <- function() {
       recursive = TRUE,
       overwrite = TRUE)
     directorios_a_copiar_en_proyecto <-
-      c("html", "installers", grep("\\.Rproj$",list.files(), value = TRUE))
+      c("html", "installers", grep("\\.Rproj$",list.files(), value = TRUE),
+        "ejecutarPrograma.R")
     varios <- file.copy(
       from = directorios_a_copiar_en_proyecto,
       to = ruta_directorio_proyecto,
@@ -736,7 +737,7 @@ catalogoCuentas <- function(tabla_balance_financiero) {
   return(catalogo)
 }
 
-generarCatalogosSEPS <- function(tabla_balance_financiero) {
+generarCatalogosSEPS <- function(tabla_balance_financiero, nombre) {
   requerirPaquetes("dplyr")
   
   ruta_dir_compartida <- "\\\\192.168.10.244\\inteligencia\\FUENTE DE DATOS\\Catalogos"
@@ -745,7 +746,7 @@ generarCatalogosSEPS <- function(tabla_balance_financiero) {
     tabla_balance_financiero %>%
     distinct(FECHA, CODIGO, CUENTA, SEGMENTO) %>%
     arrange(FECHA)
-  nombre_archivo <- paste("Catalogo OSFPS de Cuentas Historico", "SEPS")
+  nombre_archivo <- paste("Catalogo OSFPS de Cuentas Historico", nombre)
   exportarReporteTabla(catalogo_cuentas, nombre_archivo)
   exportarReporteTabla(catalogo_cuentas, nombre_archivo, ruta_dir_compartida)
   
@@ -755,7 +756,7 @@ generarCatalogosSEPS <- function(tabla_balance_financiero) {
     filter(FECHA == max(FECHA)) %>%
     slice_tail(n = 1) %>%
     ungroup()
-  nombre_archivo <- paste("Catalogo OSFPS de Cuentas Contables Actualizada", "SEPS")
+  nombre_archivo <- paste("Catalogo OSFPS de Cuentas Contables Actualizada", nombre)
   exportarReporteTabla(catalogo_cuentas_actualizada, nombre_archivo)
   exportarReporteTabla(catalogo_cuentas_actualizada, nombre_archivo, ruta_dir_compartida)
   
@@ -763,7 +764,7 @@ generarCatalogosSEPS <- function(tabla_balance_financiero) {
     tabla_balance_financiero %>%
     distinct(FECHA, RUC, RAZON_SOCIAL, SEGMENTO) %>%
     arrange(FECHA)
-  nombre_archivo <- paste("Catalogo OSFPS Hitorico", "SEPS")
+  nombre_archivo <- paste("Catalogo OSFPS Hitorico", nombre)
   exportarReporteTabla(catalogo_OSFPS_general,  nombre_archivo)
   exportarReporteTabla(catalogo_OSFPS_general,  nombre_archivo, ruta_dir_compartida)
   
@@ -771,7 +772,7 @@ generarCatalogosSEPS <- function(tabla_balance_financiero) {
     group_by(RUC, RAZON_SOCIAL) %>%
     filter(FECHA == max(FECHA)) %>%
     ungroup()
-  nombre_archivo <- paste("Catalogo OSFPS Ultima Actualizacion", "SEPS")
+  nombre_archivo <- paste("Catalogo OSFPS Ultima Actualizacion", nombre)
   exportarReporteTabla(catalogo_OSFPS_ultima_actualizacion, nombre_archivo)
   exportarReporteTabla(catalogo_OSFPS_ultima_actualizacion, nombre_archivo, ruta_dir_compartida)
   
@@ -1509,7 +1510,7 @@ modificarNombreColumnaSEPS <- function(tabla, nombre_nuevo, ...) {
   
   # nombre_nuevo: debe ser un string con el nombre deseado para homogeneizar
   
-  requerirPaquetes("dplyr","rlang","stringr")
+  requerirPaquetes("dplyr","stringr")
   
   # Lista de palabras a buscar por columna
   palabras <- list(...)
@@ -1517,8 +1518,8 @@ modificarNombreColumnaSEPS <- function(tabla, nombre_nuevo, ...) {
   coincidencias <- lapply(palabras, function(x) stringr::str_detect(names(tabla), stringr::regex(x, ignore_case = TRUE)))
   # Determinamos el nombre de columna a cambiar
   nombre_anterior <- names(tabla)[Reduce(`&`, coincidencias)]
-  # Se puede pasar el nuevo nombre de la columna como una variable desde fuera de la función dplyr::rename(). Para hacerlo, puedes usar la función rlang::sym() para convertir el valor de la variable en un símbolo y luego usar el operador !! para evaluarlo dentro de dplyr::rename()
-  tabla <- dplyr::rename(tabla, !!rlang::sym(nombre_nuevo) := nombre_anterior)
+  # Cambio de nombres
+  tabla <- dplyr::rename_at(tabla, vars(nombre_anterior), ~nombre_nuevo)
   # Resultado de la función
   return(tabla)
 }
@@ -1620,7 +1621,7 @@ crearEstadosFinancierosSEPS <- function() {
 exportarEstadosFinancierosSEPSmensualSIEVA <- function(data_frame) {
   requerirPaquetes("dplyr","openxlsx")
   
-  ultima_fecha <- max(SEPS$FECHA)
+  ultima_fecha <- max(data_frame$FECHA)
   
   SEPS_SIEVA_mensual <-
     data_frame %>%
@@ -1872,171 +1873,6 @@ modificarNombreColumnaSB <- function(tabla, precision = NULL, catalogo = NULL) {
   
   return(tabla)
 }
-
-# hojaToTablaBoletinesFinancierosSB <- function(ruta_libro, nombre_hoja, fecha_corte = NULL) {----
-#   
-#   # Esta función permite extraer la tabla de datos contenida en un hoja de cálculo correspondiente a los "Boletines Financieros mensuales" de la SB
-#   
-#   # ARGUMENTOS:
-#   # ruta_libro <- "data/Fuente/SB/PRIVADA/2023/FINANCIERO MENSUAL BANCA PRIVADA 2023_02.xlsx"
-#   # nombre_hoja <- "BALANCE"
-#   # fecha_corte <- "2023-02-29"
-#   # EJEMPLO: tabla <- hojaToTablaBoletinesFinancierosSB(ruta_libro, nombre_hoja, fecha_corte)
-#   
-#   requerirPaquetes("dplyr","readxl")
-#   
-#   nombreHojaSimilar <- function(ruta_libro, nombre_hoja_buscado) {
-#     
-#     requerirPaquetes("readxl","stringdist")
-#     
-#     nombres_hojas <- readxl::excel_sheets(ruta_libro)
-#     similitud <- stringdist::stringsimmatrix(nombre_hoja_buscado, nombres_hojas, method = "jw")
-#     indice_hoja_similar <- which.max(similitud)
-#     nombre_hoja_similar <- nombres_hojas[indice_hoja_similar]
-#     return(nombre_hoja_similar)
-#   }
-#   estandarizarNombreColumna <- function(tabla) {
-#     nombres_columnas_estandarizados <-
-#       tabla %>%
-#       colnames() %>%
-#       toupper() %>%
-#       chartr("[ÁÉÍÓÚ]", "[AEIOU]", .) %>%
-#       gsub(" {2,}"," ",.) %>%
-#       gsub("^ | $","",.)
-#     colnames(tabla) <- nombres_columnas_estandarizados
-#     return(tabla)
-#   }
-#   modificarTablaSB <- function(tabla, fecha_corte) {
-#     tabla_modificada <-
-#       tabla %>%
-#       estandarizarNombreColumna() %>%
-#       select( -matches("^[^[:alpha:]]+$", .) ) %>%
-#       filter_all( any_vars( ! is.na(.) ) ) %>%
-#       mutate(
-#         CODIGO = as.character(CODIGO),
-#         CUENTA = as.character(CUENTA)) %>%
-#       mutate_at( vars(-CODIGO, -CUENTA), as.numeric) %>%
-#       filter( ! is.na(CODIGO) & ! is.na(CUENTA) ) %>%
-#       mutate( FECHA = fecha_corte ) %>%
-#       select( FECHA, everything() )
-#     return(tabla_modificada)
-#   }
-# 
-#   nombre_hoja <- nombreHojaSimilar(ruta_libro, nombre_hoja)
-#   hoja <- suppressMessages(readxl::read_excel(ruta_libro, sheet = nombre_hoja, col_names = FALSE, n_max = 30))
-#   fecha_corte <-
-#     if ( is.null(fecha_corte) ) {
-#       # Determinamos la fecha más probable contenida en la hoja importada
-#       analisisDifusoNLPFechaCorte(hoja)
-#     } else {
-#       fecha_corte
-#     }
-#   indice_fila_nombres_columnas <- indicePrimeraFilDecimalTabla(hoja) - 1
-#   nombres_columnas <- unname(unlist(hoja[indice_fila_nombres_columnas,]))
-#   tabla_prueba <- suppressMessages(readxl::read_excel(ruta_libro, sheet = nombre_hoja, col_names = TRUE, skip = indice_fila_nombres_columnas, n_max = 20))
-#   # Verificamos si coinciden adecuadamente los nombres de las columnas
-#   if ( mean(nombres_columnas == names(tabla_prueba), na.rm = TRUE) < 0.8 ) {
-#     # Retrocedemos un índice en las filas previo a iterear para incluir cualquier caso exepcional
-#     indice_fila_nombres_columnas <- indice_fila_nombres_columnas - 2
-#     # Iteramos hasta que hayan coincidencias en al menos el 80%
-#     while ( mean(nombres_columnas == names(tabla_prueba), na.rm = TRUE) < 0.8 & indice_fila_nombres_columnas <= 20 ) {
-#       # Incrementamos el índice de la fila para continuar la prueba
-#       indice_fila_nombres_columnas <- indice_fila_nombres_columnas + 1
-#       # Reimportamos la tabla de prueba para verificar la correcta asignación de los nombres de las columnas en sus 20 primeras filas
-#       tabla_prueba <- suppressMessages(readxl::read_excel(ruta_libro, sheet = nombre_hoja, col_names = TRUE, skip = indice_fila_nombres_columnas, n_max = 20))
-#     }
-#   }
-#   advertencias <- NULL
-#   # Volvemos a importar la hoja de cálculo pero especificando la fija de inicio, para que se reconozca el tipo de dato y nombre de cada columna
-#   tabla <-
-#     # Usamos withCallingHandlers() para capturar las advertencias generadas durante la ejecución del código y almacenarlas en una variable
-#     withCallingHandlers(
-#       # Importamos únicamente la tabla de datos contenida en la hoja especificada, saltando las primeras filas
-#       suppressMessages(
-#         readxl::read_excel(ruta_libro,
-#                            sheet = nombre_hoja,
-#                            col_names = TRUE,
-#                            skip = indice_fila_nombres_columnas)),
-#       # Empleamos una función como manejador de advertencias
-#       warning = function(w) {
-#         # La función toma un argumento w, que es un objeto de advertencia que contiene información sobre la advertencia generada
-#         advertencias <<- c(advertencias, w$message)
-#         # Suprimimos la advertencia y evitamos que la advertencia se muestre en la consola y permite que el código continúe ejecutándose normalmente
-#         invokeRestart("muffleWarning")
-#       }
-#     )
-#   # Agregamos las advertencias como un atributo de la tabla
-#   attr(tabla, "advertencias") <- advertencias
-#   # Agregamos la columna con la fecha del "Boletín Financiero mensual"
-#   tabla_modificada <- modificarTablaSB(tabla, fecha_corte)
-#   
-#   return(tabla_modificada)
-# }----
-# 
-# compilarHojasBalanceFinancieroSB <- function(ruta_directorio = NULL) {----
-#   
-#   # Esta función realiza todo el proceso necesario para crear la base de datos de los Balances Financieros mensuales de la SB
-#   
-#   requerirPaquetes("dplyr","purrr","readxl","reshape2","tools")
-#   
-#   # # Cerramos todos los libros de Excel abiertos
-#   # system2("powershell", "Get-Process excel | Foreach-Object { $_.CloseMainWindow() }")
-#   # Establecemos la ruta del directorio fuente de los libros de Excel con los "Boletines Financieros mensuales"
-#   if ( is.null(ruta_directorio) ) {
-#     ruta_directorio <-
-#       "data/Fuente/SB/Boletines Financieros Mensuales/Bancos Privados"
-#       #"data/Fuente/SB/Boletines Financieros Mensuales/Instituciones Publicas"
-#   }
-#   archivos_directorio <- list.files(ruta_directorio, recursive = TRUE)
-#   # Descartamos los archivos con extensión zip
-#   #tiene_extension_zip <- tools::file_ext(archivos_directorio) == "zip"
-#   tiene_extension_zip <- grepl("\\.zip$", archivos_directorio)
-#   archivos_directorio <- archivos_directorio[!tiene_extension_zip]
-#   rutas_libros <- file.path(ruta_directorio, archivos_directorio)
-#   rutas_transformar <- rutas_libros[tools::file_ext(rutas_libros) == "xlsb"]
-#   # Realizamos los cambios solo si son necesarios
-#   if ( length(rutas_transformar) > 0 ) {
-#     purrr::map(rutas_transformar, xlsb2xlsx)
-#     archivos_directorio <- list.files(ruta_directorio, recursive = TRUE)
-#     # Volvemos a determinar todas las rutas de los archivos en el directorio luego del cambio de formato
-#     rutas_libros <- file.path(ruta_directorio, archivos_directorio)
-#   }
-#   anio_actual <- as.numeric(format(Sys.Date(), "%Y"))
-#   expresion_regular_anios <- paste(seq(2013,anio_actual), collapse = "|")
-#   prueba_anio <- grepl(expresion_regular_anios,rutas_libros)
-#   rutas_libros_seleccionados <- rutas_libros[prueba_anio]
-#   cat("\n\nCerrando los los libros de Excel realacionados...\n")
-#   cerrarLibroExcel(rutas_libros_seleccionados)
-#   
-#   barraProgresoReinicio()
-#   lista_tablas_BAL_PYG_fundidas <- list()
-#   for ( ruta_libro in rutas_libros_seleccionados ) {
-#     hoja <-
-#       suppressMessages(
-#         readxl::read_excel(ruta_libro, sheet = "BALANCE", n_max = 20))
-#     fecha_corte <- analisisDifusoNLPFechaCorte(hoja)
-#     tabla_BAL <-
-#       hojaToTablaBoletinesFinancierosSB(ruta_libro, "BALANCE", fecha_corte)
-#     tabla_PYG <-
-#       hojaToTablaBoletinesFinancierosSB(ruta_libro, "PYG", fecha_corte)
-#     nombre_tabla <- basename(ruta_libro)
-#     lista_tablas_BAL_PYG_fundidas[[nombre_tabla]] <-
-#       dplyr::bind_rows(tabla_BAL,tabla_PYG) %>%
-#       reshape2::melt(.,
-#                      id.vars = colnames(.)[1:3],
-#                      variable.name = "RAZON_SOCIAL",
-#                      value.name = "VALOR")
-#     barraProgreso(rutas_libros_seleccionados)
-#     cat("\033[1;32mImportando y procesando el archivo:\033[0m",
-#         "[", normalizePath(ruta_libro), "]\n")
-#   }
-#   
-#   tabla_BAL_PYG <-
-#     dplyr::bind_rows(lista_tablas_BAL_PYG_fundidas) %>%
-#     dplyr::mutate(RAZON_SOCIAL = as.character(RAZON_SOCIAL))
-#   
-#   return(tabla_BAL_PYG)
-# }----
 
 hojaToTablaBoletinesFinancierosSB <- function(ruta_libro, nombre_hoja, fecha_corte = NULL) {
   
@@ -2356,8 +2192,7 @@ crearBalancesFinancierosSB <- function() {
 
 # SFN----
 
-fusionarBalancesSBEstadosSEPSFinancieros <- function() {
-  
+configuracionLocal <- function(restaurar = FALSE) {
   categorias_de_configuracion <-
     c("LC_COLLATE", "LC_CTYPE", "LC_MONETARY", "LC_NUMERIC", "LC_TIME")
   configuracion_local_proceso_R <-
@@ -2365,31 +2200,56 @@ fusionarBalancesSBEstadosSEPSFinancieros <- function() {
   configuracion_BalancesEstadosFinancierosSFN <-
     c(rep("Spanish_Ecuador.utf8",3),"C","Spanish_Ecuador.utf8")
   mapply(Sys.setlocale,
-    categorias_de_configuracion, configuracion_BalancesEstadosFinancierosSFN)
+         categorias_de_configuracion, configuracion_BalancesEstadosFinancierosSFN)
   num_max_impresiones_consola <- getOption("max.print")
   options(max.print = 10000)
+  if (isTRUE(restaurar)) {
+    options(max.print = num_max_impresiones_consola)
+    mapply(Sys.setlocale, 
+           categorias_de_configuracion, configuracion_local_proceso_R)
+  }
+}
+
+ejecutarProcesoSB <- function() {
+  tic_general <- Sys.time()
+  SB <- crearBalancesFinancierosSB() # Verificado en prueba 2023/07/05
+  cat("\n\n  \033[1;34mDuración del proceso SB:",
+      formatoTiempoHMS(difftime(Sys.time(), tic_general, units = "secs")), "\033[0m\n\n")
+  return(SB)
+}
+
+ejecutarProcesoSEPS <- function() {
+  tic_general <- Sys.time()
+  SEPS <- crearEstadosFinancierosSEPS() # Verificado en prueba 2023/07/05
+  exportarEstadosFinancierosSEPSmensualSIEVA(SEPS) # Verificado en prueba 2023/06/16
+  cat("\n\n  \033[1;34mDuración del proceso SEPS:",
+      formatoTiempoHMS(difftime(Sys.time(), tic_general, units = "secs")), "\033[0m\n\n")
+  return(SEPS)
+}
+
+fusionarBalancesSBEstadosSEPSFinancieros <- function() {
   
   tic_general <- Sys.time()
   
+  configuracionLocal()
+  
   requerirPaquetes()
   
-  SB <- crearBalancesFinancierosSB() # Verificado en prueba 2023/07/05
-  SEPS <- crearEstadosFinancierosSEPS() # Verificado en prueba 2023/07/05
-  BEF <- rbind(SEPS, SB)
+  SEPS <- ejecutarProcesoSEPS()
   
-  exportarEstadosFinancierosSEPSmensualSIEVA() # Verificado en prueba 2023/06/16
+  SB <- ejecutarProcesoSB()
+
+  BEF <- rbind(SEPS, SB)
   
   exportarResultadosCSV(BEF,"Balances Estados Financieros")
   
   ruta_dir_compartida <- "\\\\192.168.10.244\\inteligencia"
   exportarResultadosCSV(BEF,"Balances Estados Financieros",ruta_dir_compartida)
   
+  configuracionLocal(restaurar = TRUE)
+  
   cat("\n\n  \033[1;34mDuración total del proceso:",
       formatoTiempoHMS(difftime(Sys.time(), tic_general, units = "secs")), "\033[0m\n\n")
   
-  options(max.print = num_max_impresiones_consola)
-  mapply(Sys.setlocale, 
-         categorias_de_configuracion, configuracion_local_proceso_R)
-  
-  return(list(SB=SB,SEPS=SEPS,BEF=BEF))
+  return(BEF)
 }
